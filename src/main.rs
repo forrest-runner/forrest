@@ -25,6 +25,14 @@ fn main() -> anyhow::Result<()> {
     // Use a central registry of cached installation tokens for efficiency.
     let auth = auth::Auth::new(&config)?;
 
+    log::info!("Startup complete. Handling requests");
+
+    // Notify systemd that we are ready to handle requests.
+    // This allows us to use the `Type=notify` systemd service type.
+    if let Err(e) = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]) {
+        log::info!("Failed to notify systemd about service startup: {e}");
+    }
+
     // Pretend to use the `Auth` methods to prevent dead_code warnings.
     let _ = auth.app();
     auth.update_user("hnez", octocrab::models::InstallationId(0));

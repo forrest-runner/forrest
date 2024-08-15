@@ -233,6 +233,7 @@ dependencies = [
  "log",
  "octocrab",
  "pretty_env_logger",
+ "sd-notify",
  "serde",
  "serde_yml",
 ]
@@ -938,6 +939,12 @@ checksum = "fbc91545643bcf3a0bbb6569265615222618bdf33ce4ffbbd13c4bbd4c093534"
 dependencies = [
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "sd-notify"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4646d6f919800cd25c50edb49438a1381e2cd4833c027e75e8897981c50b8b5e"
 
 [[package]]
 name = "secrecy"
