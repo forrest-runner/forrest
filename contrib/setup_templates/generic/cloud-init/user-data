@@ -1,0 +1,79 @@
+#cloud-config
+
+users:
+  - name: runner
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+
+runcmd:
+  - |
+    # Disable the ssh service on the machine.
+    # This should work with both Debian an Arch Linux machines.
+
+    for service in sshd.service ssh.service
+    do
+      if [ -e "/usr/lib/systemd/system/${service}" ]
+      then
+          systemctl disable --now --no-block "${service}"
+      fi
+    done
+
+  - |
+    set -e -u
+
+    # Provide a root shell on the secondary serial device
+    # (the one connected to shell.sock on the outside).
+
+    GETTY_SERVICE="serial-getty@ttyS1.service"
+    GETTY_DIR="/etc/systemd/system/${GETTY_SERVICE}.d/"
+    GETTY_OVERRIDE="${GETTY_DIR}/override.conf"
+
+    if ! test -e "${GETTY_OVERRIDE}"
+    then
+        mkdir -p "${GETTY_DIR}"
+        cat > "${GETTY_OVERRIDE}" << 'EOF'
+    [Service]
+    ExecStart=
+    ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+    EOF
+
+        systemctl daemon-reload
+        systemctl enable --now --no-block "${GETTY_SERVICE}"
+    fi
+
+  - |
+    set -e -u
+
+    # Set up a service that mounts the job config file system and runs the job
+    # script inside of it under the `runner` user.
+
+    SERVICE_FILE="github-action-runner.service"
+    SERVICE_PATH="/etc/systemd/system/${SERVICE_FILE}"
+
+    if ! test -e "${SERVICE_PATH}"
+    then
+        cat > "${SERVICE_PATH}" << 'EOF'
+    [Unit]
+    Description=GitHub JIT Runner
+    After=network.target cloud-final.service
+
+    [Service]
+    ExecStartPre=+/usr/bin/cloud-init status --wait
+    ExecStartPre=+/usr/bin/mount -o rw,fmask=0022,dmask=0022,uid=runner,gid=runner --mkdir /dev/disk/by-label/JOBDATA /home/runner/config
+    ExecStart=/home/runner/config/job.sh
+    ExecStopPost=+/usr/bin/systemctl poweroff
+    StandardOutput=journal+console
+    StandardError=journal+console
+    User=runner
+    WorkingDirectory=/home/runner
+    KillMode=process
+    KillSignal=SIGTERM
+    TimeoutStopSec=5min
+
+    [Install]
+    WantedBy=cloud-init.target
+    EOF
+
+        systemctl daemon-reload
+        systemctl enable "${SERVICE_FILE}"
+        systemctl start --no-block "${SERVICE_FILE}"
+    fi
