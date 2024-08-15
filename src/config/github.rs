@@ -13,6 +13,7 @@ fn default_timeout() -> Duration {
 pub struct GitHubConfig {
     pub app_id: u64,
     pub jwt_key_file: String,
+    pub webhook_secret: String,
     #[serde(default = "default_timeout")]
     #[serde(deserialize_with = "duration_human::deserialize")]
     pub polling_interval: Duration,

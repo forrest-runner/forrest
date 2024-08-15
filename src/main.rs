@@ -24,6 +24,10 @@ async fn forrest() -> anyhow::Result<()> {
     // Use a central registry of cached installation tokens for efficiency.
     let auth = auth::Auth::new(&config)?;
 
+    // The main method to learn about new jobs to run is via webhooks.
+    // These are POST requests sent by GitHub notifying us about events.
+    let mut webhook = ingres::WebhookHandler::new(config.clone(), auth.clone())?;
+
     // Our secondary source of information are periodic polls of the GitHub API.
     // These come in handy at startup or after network outages when we may have
     // missed webhooks.
@@ -41,8 +45,10 @@ async fn forrest() -> anyhow::Result<()> {
         log::info!("Failed to notify systemd about service startup: {e}");
     }
 
-    // Periodically fetch job states from the API
-    poller.poll().await?;
+    tokio::select! {
+        res = webhook.run() => res,
+        res = poller.poll() => res,
+    }?;
 
     Ok(())
 }

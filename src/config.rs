@@ -9,15 +9,18 @@ use serde::Deserialize;
 
 mod duration_human;
 mod github;
+mod host;
 mod machine;
 
 pub use github::GitHubConfig;
+pub use host::HostConfig;
 pub use machine::Repository;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigFile {
     pub github: GitHubConfig,
+    pub host: HostConfig,
     pub repositories: HashMap<String, HashMap<String, Repository>>,
 }
 
