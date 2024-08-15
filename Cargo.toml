@@ -8,5 +8,8 @@ homepage = "https://github.com/hnez/forrest"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+anyhow = "1.0"
 log = "0.4"
 pretty_env_logger = "0.5"
+serde = "1.0"
+serde_yml = "0.0.10"
