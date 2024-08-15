@@ -1,0 +1,10 @@
+[package]
+name = "forrest"
+version = "0.1.0"
+authors = ["Leonard Göhrs"]
+edition = "2021"
+description = "Run GitHub self-hosted runners in qemu VMs"
+homepage = "https://github.com/hnez/forrest"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
