@@ -22,6 +22,15 @@ pub enum SeedBasePolicy {
     Never,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExposedDirectory {
+    pub path: PathBuf,
+    pub tag: String,
+    #[serde(default)]
+    pub writable: bool,
+}
+
 impl Default for SeedBasePolicy {
     fn default() -> Self {
         Self::IfNewer
@@ -38,8 +47,12 @@ pub struct MachineConfig {
     #[serde(default)]
     pub use_base: SeedBasePolicy,
 
+    pub cpus: u32,
     pub disk: SizeInBytes,
     pub ram: SizeInBytes,
+
+    #[serde(default)]
+    pub shared: Vec<ExposedDirectory>,
 }
 
 #[derive(Deserialize)]

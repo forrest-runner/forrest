@@ -1,17 +1,57 @@
+use std::ffi::OsString;
+use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use log::{debug, error, info, warn};
-use octocrab::models::actions::SelfHostedRunnerJitConfig;
-use octocrab::models::{RunnerGroupId, RunnerId};
+use octocrab::models::RunnerGroupId;
+use octocrab::models::{actions::SelfHostedRunnerJitConfig, RunnerId};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use tokio::task::AbortHandle;
+use tokio::{process::Command, task::AbortHandle};
 
 use super::manager::{Machines, Rescheduler};
 use super::run_dir::RunDir;
 use super::triplet::Triplet;
 use crate::auth::Auth;
 use crate::config::{ConfigFile, MachineConfig};
+
+// The arguments used to start the qemu process.
+//
+// These assume a specific filesystem structure,
+// as set up by `RunDir`.
+// More arguments are added in the `Machine::qemu()` method based on
+// the machine configuration.
+const QEMU_CMD: &str = "/usr/bin/qemu-system-x86_64";
+const QEMU_ARGS: &[&[&str]] = &[
+    &["-enable-kvm"],
+    &["-nodefaults"],
+    &["-nographic"],
+    &["-M", "type=q35,accel=kvm,smm=on"],
+    &["-cpu", "max"],
+    &["-global", "ICH9-LPC.disable_s3=1"],
+    &["-nic", "user,model=virtio-net-pci"],
+    &["-object", "rng-random,filename=/dev/urandom,id=rng0"],
+    &["-device", "virtio-rng-pci,rng=rng0,id=rng-device0"],
+    &["-device", "isa-serial,chardev=bootlog"],
+    &["-device", "isa-serial,chardev=telnet"],
+    &["-chardev", "file,id=bootlog,path=log.txt"],
+    &[
+        "-chardev",
+        "socket,id=telnet,server=on,wait=off,path=shell.sock",
+    ],
+    &[
+        "-drive",
+        "if=virtio,format=raw,discard=unmap,cache=unsafe,file=disk.img",
+    ],
+    &[
+        "-drive",
+        "if=virtio,format=raw,discard=unmap,cache=unsafe,file=cloud-init.img",
+    ],
+    &[
+        "-drive",
+        "if=virtio,format=raw,discard=unmap,cache=unsafe,file=job-config.img",
+    ],
+];
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub(super) enum Status {
@@ -298,40 +338,104 @@ impl Machine {
 
         inner.status = Status::Registering;
         inner.abort = Some(task.abort_handle());
+    }
 
-        println!("Registering {self} as jit runner is not yet implemented");
-        println!("Will pretend to do so instead");
+    /// Spawn the qemu process and wait for its completion
+    async fn qemu(&self) -> std::io::Result<()> {
+        let machine_config = self.machine_config();
 
-        inner.status = Status::Registered;
+        // Set up virtfs directory forwarding from the host to the machine.
+        let virtfs_args = machine_config.shared.iter().flat_map(|dir| {
+            let mut arg = OsString::new();
+
+            let tag = &dir.tag;
+            let readonly = if dir.writable { "off" } else { "on" };
+
+            write!(&mut arg, "local,security_model=none,",).unwrap();
+            write!(&mut arg, "mount_tag={tag},readonly={readonly},path=",).unwrap();
+
+            arg.push(dir.path.as_os_str());
+
+            ["-virtfs".into(), arg].into_iter()
+        });
+
+        // Assemble the complete set of arguments to pass to the qemu command.
+        let mut qemu = {
+            let inner = self.inner();
+            let ram = machine_config.ram.megabytes().to_string();
+            let smp = machine_config.cpus.to_string();
+            let pwd = inner.run_dir.as_ref().unwrap();
+
+            let mut qemu = Command::new(QEMU_CMD);
+
+            qemu.kill_on_drop(true)
+                .current_dir(pwd.path())
+                .arg("-m")
+                .arg(&ram)
+                .arg("-smp")
+                .arg(&smp)
+                .args(QEMU_ARGS.iter().flat_map(|arg_list| *arg_list))
+                .args(virtfs_args);
+
+            qemu
+        };
+
+        // Actually run the qemu command and wait for its completion.
+        let status = qemu.status().await?;
+
+        match status.success() {
+            true => Ok(()),
+            false => {
+                let code = status.code().map(|c| c.to_string());
+                let dpc = code.as_deref().unwrap_or("<None>");
+
+                let msg = format!("The qemu process for job {self} exited with code: {dpc}",);
+
+                Err(std::io::Error::other(msg))
+            }
+        }
     }
 
     // Spawn qemu in the background and keep the machine state updated
     fn spawn(self: &Arc<Self>, inner: &mut Inner) {
         assert_eq!(inner.status, Status::Registered);
 
-        println!("Spawning a VM for {self} is not yet implemented");
-        println!("Will pretend to do so instead");
+        let machine = self.clone();
+
+        let task = tokio::spawn(async move {
+            match machine.qemu().await {
+                Ok(()) => {
+                    info!("Machine {machine} has completed");
+
+                    let mut inner = machine.inner();
+                    inner.run_dir.as_mut().unwrap().maybe_persist();
+                }
+                Err(err) => error!("Failed to run machine {machine}: {err}",),
+            }
+
+            // We are about to exit anyways.
+            // No need to abort this task anymore.
+            machine.inner().abort = None;
+
+            // Update our status to stopped and some other cleanup.
+            machine.kill();
+
+            // Maybe schedule new machines in the space we freed.
+            machine.rescheduler.reschedule();
+        });
 
         inner.status = Status::Starting;
         inner.started = Some(Instant::now());
-
-        println!("And now I will pretend it is done");
-
-        // Persist the disk image as new machine image
-        inner.run_dir.as_mut().unwrap().maybe_persist();
-
-        // Update our status to stopped and some other cleanup.
-        self.kill();
-
-        // Maybe schedule new machines in the space we freed.
-        self.rescheduler.reschedule();
+        inner.abort = Some(task.abort_handle());
     }
 
     /// Stop this machine, set the status to stopped and maybe de-register the jit runner.
     pub(super) fn kill(self: &Arc<Self>) {
         let mut inner_locked = self.inner();
 
-        println!("No VM was spawned for {self} so we can just pretend to kill it");
+        if let Some(abort) = inner_locked.abort.take() {
+            abort.abort()
+        }
 
         inner_locked.status = Status::Stopped;
 

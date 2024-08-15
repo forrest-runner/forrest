@@ -187,6 +187,10 @@ impl RunDir {
         Ok(Some(dir))
     }
 
+    pub(super) fn path(&self) -> &Path {
+        &self.run_dir
+    }
+
     /// Persist the disk image as new machine image if the correct persist file was written
     pub(super) fn maybe_persist(&mut self) {
         let persistence_token = match &self.persistence_token {

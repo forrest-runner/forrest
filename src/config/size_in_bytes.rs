@@ -31,4 +31,12 @@ impl SizeInBytes {
     pub fn bytes(&self) -> u64 {
         self.0
     }
+
+    pub fn kilobyes(self) -> u64 {
+        self.bytes() / 1024
+    }
+
+    pub fn megabytes(&self) -> u64 {
+        self.kilobyes() / 1024
+    }
 }
