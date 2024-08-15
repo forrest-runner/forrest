@@ -80,6 +80,13 @@ impl Triplet {
             machine_name: machine_name.to_string(),
         }
     }
+
+    pub fn into_owner_and_repo(self) -> OwnerAndRepo {
+        OwnerAndRepo {
+            owner: self.owner,
+            repository: self.repository,
+        }
+    }
 }
 
 impl std::fmt::Display for Triplet {

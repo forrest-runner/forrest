@@ -1,3 +1,3 @@
 mod triplet;
 
-pub use triplet::OwnerAndRepo;
+pub use triplet::{OwnerAndRepo, Triplet};

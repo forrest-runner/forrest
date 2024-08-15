@@ -7,6 +7,7 @@ use octocrab::models::RunId;
 
 use crate::auth::Auth;
 use crate::config::{Config, Repository};
+use crate::jobs::Manager as JobManager;
 use crate::machines::OwnerAndRepo;
 
 /// The cut-off point when fetching the initial run list.
@@ -16,16 +17,18 @@ const MAX_NEW_RUN_AGE: TimeDelta = TimeDelta::days(7);
 pub struct Poller {
     auth: Arc<Auth>,
     config: Config,
+    job_manager: JobManager,
     most_recent_run_id: Arc<Mutex<HashMap<OwnerAndRepo, RunId>>>,
 }
 
 impl Poller {
-    pub fn new(config: Config, auth: Arc<Auth>) -> Self {
+    pub fn new(config: Config, auth: Arc<Auth>, job_manager: JobManager) -> Self {
         let most_recent_run_id = Arc::new(Mutex::new(HashMap::new()));
 
         Self {
             auth,
             config,
+            job_manager,
             most_recent_run_id,
         }
     }
@@ -100,9 +103,17 @@ impl Poller {
                     None => continue,
                 };
 
-                // Only print the job status we got for now.
-                // Later we can use it to spawn or kill virtual machines to service the jobs.
-                println!("Got job status by polling: {triplet} {job:?}");
+                // Update the job state in the job manager or create the job there
+                // in the first place.
+                // The job manager will then forward the demand for machines to the
+                // machine manager.
+                self.job_manager.status_feedback(
+                    &triplet,
+                    job.id,
+                    run_id,
+                    job.status,
+                    job.runner_name.as_deref(),
+                );
             }
         }
 
@@ -154,7 +165,7 @@ impl Poller {
 
         // These are runs for which we have jobs in "interesting" states,
         // like "pending", "queued" or "in_progress".
-        let mut runs_of_interest = HashMap::new();
+        let mut runs_of_interest = self.job_manager.runs_of_interest();
 
         // This pagination pattern comes up a lot in this file,
         // since GitHub limits the number of entries we can get with each request.

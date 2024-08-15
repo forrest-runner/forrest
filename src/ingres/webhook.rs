@@ -16,6 +16,7 @@ use tokio::time::timeout;
 
 use crate::auth::Auth;
 use crate::config::{Config, ConfigFile};
+use crate::jobs::Manager as JobManager;
 use crate::machines::OwnerAndRepo;
 
 const WEBHOOK_TIMEOUT: Duration = Duration::from_secs(5);
@@ -35,11 +36,12 @@ Content-Length: 0\r
 pub struct WebhookHandler {
     config: Config,
     auth: Arc<Auth>,
+    job_manager: JobManager,
     listener: UnixListener,
 }
 
 impl WebhookHandler {
-    pub fn new(config: Config, auth: Arc<Auth>) -> std::io::Result<Self> {
+    pub fn new(config: Config, auth: Arc<Auth>, job_manager: JobManager) -> std::io::Result<Self> {
         let listener = {
             let cfg = config.get();
 
@@ -58,6 +60,7 @@ impl WebhookHandler {
         Ok(Self {
             config,
             auth,
+            job_manager,
             listener,
         })
     }
@@ -67,6 +70,7 @@ impl WebhookHandler {
             let (sock, _) = self.listener.accept().await?;
             let config = self.config.get();
             let auth = self.auth.clone();
+            let job_manager = self.job_manager.clone();
 
             tokio::task::spawn(async move {
                 let timeout_error = Err(std::io::Error::new(
@@ -74,9 +78,12 @@ impl WebhookHandler {
                     "Handler function took too long to run",
                 ));
 
-                let res = timeout(WEBHOOK_TIMEOUT, webook_handler(sock, &config, &auth))
-                    .await
-                    .or(timeout_error);
+                let res = timeout(
+                    WEBHOOK_TIMEOUT,
+                    webook_handler(sock, &config, &auth, job_manager),
+                )
+                .await
+                .or(timeout_error);
 
                 if let Err(err) = res {
                     warn!("Webhook handler failed due to: {err}");
@@ -90,6 +97,7 @@ async fn webook_handler(
     mut sock: UnixStream,
     config: &ConfigFile,
     auth: &Auth,
+    job_manager: JobManager,
 ) -> std::io::Result<()> {
     let (read, mut write) = sock.split();
 
@@ -97,7 +105,7 @@ async fn webook_handler(
 
     let response = match read_req(secret, read).await {
         Ok(res) => {
-            workflow_job_handler(res, config, auth).await;
+            workflow_job_handler(res, config, auth, job_manager).await;
 
             OK_RESPONSE
         }
@@ -216,7 +224,12 @@ async fn read_req<'a>(secret: &[u8], read: ReadHalf<'a>) -> std::io::Result<Webh
     })
 }
 
-async fn workflow_job_handler(event: WebhookEvent, config: &ConfigFile, auth: &Auth) {
+async fn workflow_job_handler(
+    event: WebhookEvent,
+    config: &ConfigFile,
+    auth: &Auth,
+    job_manager: JobManager,
+) {
     let job = match event.specific {
         WebhookEventPayload::WorkflowJob(job) => job,
         _ => return,
@@ -281,7 +294,11 @@ async fn workflow_job_handler(event: WebhookEvent, config: &ConfigFile, auth: &A
         None => return,
     };
 
-    // Only print the job status we got for now.
-    // Later we can use it to spawn or kill virtual machines to service the jobs.
-    println!("Got job status by polling: {triplet} {workflow_job:?}");
+    job_manager.status_feedback(
+        &triplet,
+        workflow_job.id,
+        workflow_job.run_id,
+        workflow_job.status,
+        workflow_job.runner_name.as_deref(),
+    );
 }
