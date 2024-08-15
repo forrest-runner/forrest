@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = "1.0"
 chrono = "0.4"
+fatfs = "0.3"
 hex = "0.4"
 hmac = "0.12"
 jsonwebtoken = "9.3"

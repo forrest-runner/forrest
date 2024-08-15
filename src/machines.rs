@@ -1,3 +1,4 @@
+mod config_fs;
 mod machine;
 mod manager;
 mod run_dir;

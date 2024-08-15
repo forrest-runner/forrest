@@ -85,6 +85,13 @@ impl std::fmt::Display for Status {
 }
 
 impl Inner {
+    /// The configuration string to pass to the action runner executable.
+    fn encoded_jit_config(&self) -> Option<String> {
+        self.jit_config
+            .as_ref()
+            .map(|jc| jc.encoded_jit_config.clone())
+    }
+
     fn runner_id(&self) -> Option<RunnerId> {
         self.jit_config.as_ref().map(|jc| jc.runner.id)
     }
@@ -310,6 +317,9 @@ impl Machine {
 
         println!("And now I will pretend it is done");
 
+        // Persist the disk image as new machine image
+        inner.run_dir.as_mut().unwrap().maybe_persist();
+
         // Update our status to stopped and some other cleanup.
         self.kill();
 
@@ -386,7 +396,16 @@ impl Machine {
                     return;
                 }
 
-                let run_dir = RunDir::new(self, machines);
+                let encoded_jit_config = match inner.encoded_jit_config() {
+                    Some(ejc) => ejc,
+                    None => {
+                        error!("Can not set up run dir for {self} due to missing jit config");
+                        inner.status = Status::Stopped;
+                        return;
+                    }
+                };
+
+                let run_dir = RunDir::new(self, machines, encoded_jit_config);
 
                 match run_dir {
                     Ok(run_dir) => inner.run_dir = run_dir,
