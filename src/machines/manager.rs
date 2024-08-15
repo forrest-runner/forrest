@@ -1,5 +1,7 @@
 use std::{
     collections::HashMap,
+    io::ErrorKind,
+    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -194,7 +196,7 @@ impl Manager {
         machines_flat.sort_unstable_by_key(|m| Machine::ram_required(m));
 
         for machine in machines_flat.iter_mut().rev() {
-            machine.reschedule(&mut ram_available);
+            machine.reschedule(&mut ram_available, &machines);
         }
 
         debug!("Machines and their new state:");
@@ -307,6 +309,8 @@ impl Manager {
         // Go through each machine and check for timeouts
         let mut machines = self.machines();
 
+        let base_dir_path = Path::new(&cfg.host.base_dir);
+
         for (triplet, triplet_machines) in machines.iter_mut() {
             for machine in triplet_machines {
                 let runner_name = machine.runner_name();
@@ -319,7 +323,33 @@ impl Manager {
                 if start_timeout_elapsed {
                     error!("Runner {runner_name} on {triplet} failed to come up in time");
 
+                    let machine_image_path = triplet.machine_image_path(base_dir_path);
+
                     machine.kill();
+
+                    let broken_image_path = {
+                        let mut filename = machine_image_path.file_name().unwrap().to_os_string();
+                        filename.push(".broken");
+                        machine_image_path.parent().unwrap().join(filename)
+                    };
+
+                    // Keep a copy of the broken image around for later investigation.
+                    // But move the original away so that later invocations run from seed
+                    // image again and hopefully succeed.
+                    let res = std::fs::rename(&machine_image_path, &broken_image_path);
+
+                    let mip = machine_image_path.display();
+                    let bip = broken_image_path.display();
+
+                    match res {
+                        Ok(()) => info!("Retained broken machine image as {bip}"),
+                        Err(e) if e.kind() == ErrorKind::NotFound => {
+                            info!(
+                                "Machine image {mip} not found. Machine likely started from seed."
+                            )
+                        }
+                        Err(e) => error!("Failed to remove broken disk image {bip}: {e}"),
+                    }
                 }
             }
         }

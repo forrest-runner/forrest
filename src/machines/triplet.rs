@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use log::debug;
 use serde::de::{Deserialize, Deserializer, Error};
 
@@ -98,6 +100,23 @@ impl Triplet {
             owner: self.owner,
             repository: self.repository,
         }
+    }
+
+    pub(super) fn run_dir_path(&self, base_dir_path: &Path, runner_name: &str) -> PathBuf {
+        base_dir_path
+            .join("runs")
+            .join(&self.owner)
+            .join(&self.repository)
+            .join(&self.machine_name)
+            .join(runner_name)
+    }
+
+    pub(super) fn machine_image_path(&self, base_dir_path: &Path) -> PathBuf {
+        base_dir_path
+            .join("machines")
+            .join(&self.owner)
+            .join(&self.repository)
+            .join(format!("{}.img", self.machine_name))
     }
 }
 

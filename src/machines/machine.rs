@@ -7,7 +7,8 @@ use octocrab::models::{RunnerGroupId, RunnerId};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tokio::task::AbortHandle;
 
-use super::manager::Rescheduler;
+use super::manager::{Machines, Rescheduler};
+use super::run_dir::RunDir;
 use super::triplet::Triplet;
 use crate::auth::Auth;
 use crate::config::{ConfigFile, MachineConfig};
@@ -29,6 +30,7 @@ pub(super) enum Status {
 struct Inner {
     abort: Option<AbortHandle>,
     jit_config: Option<SelfHostedRunnerJitConfig>,
+    run_dir: Option<RunDir>,
     started: Option<Instant>,
     status: Status,
 }
@@ -132,6 +134,7 @@ impl Machine {
 
         let inner = Mutex::new(Inner {
             status: Status::Requested,
+            run_dir: None,
             abort: None,
             jit_config: None,
             started: None,
@@ -364,7 +367,13 @@ impl Machine {
     ///
     /// The `ram_available` argument is used to decide if the machine can be spawned
     /// and is updated _if_ the machine was spawned.
-    pub(super) fn reschedule(self: &Arc<Self>, ram_available: &mut u64) {
+    ///
+    /// The `machines` argument is checked if the machine this machine is based on is
+    /// currently running.
+    /// If so the startup of this machine is delayed since a new base image is likely to
+    /// be available soon, which should be used instead of the current base image or
+    /// the machine image.
+    pub(super) fn reschedule(self: &Arc<Self>, ram_available: &mut u64, machines: &Machines) {
         let mut inner = self.inner();
 
         match inner.status {
@@ -377,8 +386,21 @@ impl Machine {
                     return;
                 }
 
-                self.spawn(&mut inner);
-                *ram_available -= ram_required;
+                let run_dir = RunDir::new(self, machines);
+
+                match run_dir {
+                    Ok(run_dir) => inner.run_dir = run_dir,
+                    Err(err) => {
+                        error!("Failed to set up run dir for {self}: {err}");
+                        inner.status = Status::Stopped;
+                        return;
+                    }
+                }
+
+                if inner.run_dir.is_some() {
+                    self.spawn(&mut inner);
+                    *ram_available -= ram_required;
+                }
             }
             Status::Registering
             | Status::Starting
