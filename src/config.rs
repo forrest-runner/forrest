@@ -6,9 +6,15 @@ use std::time::SystemTime;
 use log::error;
 use serde::Deserialize;
 
+mod github;
+
+pub use github::GitHubConfig;
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConfigFile {}
+pub struct ConfigFile {
+    pub github: GitHubConfig,
+}
 
 struct Inner {
     path: PathBuf,

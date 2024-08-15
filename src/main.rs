@@ -1,3 +1,4 @@
+mod auth;
 mod config;
 mod machines;
 
@@ -19,8 +20,15 @@ fn main() -> anyhow::Result<()> {
     // allowing changes to be made while jobs are being executed.
     let config = config::Config::new(config_path)?;
 
-    // Pretend to use the `Config` methods to prevent dead_code warnings.
-    let _cfg = config.get();
+    // We use a private key to authenticate as a GitHub application
+    // and derive installation tokens from it.
+    // Use a central registry of cached installation tokens for efficiency.
+    let auth = auth::Auth::new(&config)?;
+
+    // Pretend to use the `Auth` methods to prevent dead_code warnings.
+    let _ = auth.app();
+    auth.update_user("hnez", octocrab::models::InstallationId(0));
+    let _ = auth.user("hnez");
 
     Ok(())
 }
