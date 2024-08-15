@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0"
+chrono = "0.4"
 jsonwebtoken = "9.3"
 log = "0.4"
 octocrab = "0.38"

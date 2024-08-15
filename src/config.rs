@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -6,14 +7,18 @@ use std::time::SystemTime;
 use log::error;
 use serde::Deserialize;
 
+mod duration_human;
 mod github;
+mod machine;
 
 pub use github::GitHubConfig;
+pub use machine::Repository;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigFile {
     pub github: GitHubConfig,
+    pub repositories: HashMap<String, HashMap<String, Repository>>,
 }
 
 struct Inner {

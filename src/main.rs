@@ -1,5 +1,6 @@
 mod auth;
 mod config;
+mod ingres;
 mod machines;
 
 async fn forrest() -> anyhow::Result<()> {
@@ -23,6 +24,15 @@ async fn forrest() -> anyhow::Result<()> {
     // Use a central registry of cached installation tokens for efficiency.
     let auth = auth::Auth::new(&config)?;
 
+    // Our secondary source of information are periodic polls of the GitHub API.
+    // These come in handy at startup or after network outages when we may have
+    // missed webhooks.
+    let poller = ingres::Poller::new(config.clone(), auth.clone());
+
+    // Make sure we can reach GitHub and our authentication works before
+    // signaling readiness to systemd.
+    poller.poll_once().await?;
+
     log::info!("Startup complete. Handling requests");
 
     // Notify systemd that we are ready to handle requests.
@@ -31,10 +41,8 @@ async fn forrest() -> anyhow::Result<()> {
         log::info!("Failed to notify systemd about service startup: {e}");
     }
 
-    // Pretend to use the `Auth` methods to prevent dead_code warnings.
-    let _ = auth.app();
-    auth.update_user("hnez", octocrab::models::InstallationId(0));
-    let _ = auth.user("hnez");
+    // Periodically fetch job states from the API
+    poller.poll().await?;
 
     Ok(())
 }
