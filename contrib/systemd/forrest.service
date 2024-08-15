@@ -1,0 +1,13 @@
+[Unit]
+Description=Forrest GitHub Action Runner Runner
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/forrest /etc/forrest/config.yaml
+Type=notify
+User=forrest
+WorkingDirectory=/var/lib/forrest
+Environment="RUST_LOG=info"
+
+[Install]
+WantedBy=multi-user.target
