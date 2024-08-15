@@ -11,10 +11,11 @@ mod duration_human;
 mod github;
 mod host;
 mod machine;
+mod size_in_bytes;
 
 pub use github::GitHubConfig;
 pub use host::HostConfig;
-pub use machine::Repository;
+pub use machine::{MachineConfig, Repository};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -7,7 +7,7 @@ use octocrab::models::{JobId, RunId};
 use tokio::task::JoinHandle;
 
 use super::job::Job;
-use crate::machines::{OwnerAndRepo, Triplet};
+use crate::machines::{Manager as MachineManager, OwnerAndRepo, Triplet};
 
 // The `status_feedback()` method is called for each webhook event
 // and each job that comes up in a poll.
@@ -19,12 +19,13 @@ const UPDATE_SOON_DELAY: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct Manager {
+    machine_manager: MachineManager,
     jobs: Arc<Mutex<Vec<Job>>>,
     update_soon_task: Arc<Mutex<JoinHandle<()>>>,
 }
 
 impl Manager {
-    pub fn new() -> Self {
+    pub fn new(machine_manager: MachineManager) -> Self {
         let jobs = Arc::new(Mutex::new(Vec::new()));
 
         // A placeholder task that finishes immediately.
@@ -32,6 +33,7 @@ impl Manager {
         let update_soon_task = Arc::new(Mutex::new(tokio::spawn(async {})));
 
         Self {
+            machine_manager,
             jobs,
             update_soon_task,
         }
@@ -76,13 +78,15 @@ impl Manager {
             // We know that the runner this job is running on must be online and busy,
             // even though that information may not have trickled through yet.
             // Make sure the runner does not become eligible for termination.
-            println!("{triplet} {runner_name} is now online and busy");
+            self.machine_manager
+                .status_feedback(triplet, runner_name, Some(true), true);
         }
 
         if let (Status::Completed | Status::Failed, Some(runner_name)) = (&status, runner_name) {
             // We know that the runner this job is running on is no longer busy.
             // We do however not know if it is still online.
-            println!("{triplet} {runner_name} is now no longer busy but possibly still online");
+            self.machine_manager
+                .status_feedback(triplet, runner_name, None, false);
         }
 
         let mut jobs = self.jobs.lock().unwrap();
@@ -151,10 +155,6 @@ impl Manager {
             .iter()
             .filter_map(|job| job.is_queued().then_some(job.triplet()));
 
-        println!("The current demand for machines is:");
-
-        for triplet in triplets {
-            println!("  - {triplet}");
-        }
+        self.machine_manager.update_demand(triplets);
     }
 }

@@ -81,6 +81,18 @@ impl Triplet {
         }
     }
 
+    pub fn owner(&self) -> &str {
+        &self.owner
+    }
+
+    pub fn repository(&self) -> &str {
+        &self.repository
+    }
+
+    pub fn machine_name(&self) -> &str {
+        &self.machine_name
+    }
+
     pub fn into_owner_and_repo(self) -> OwnerAndRepo {
         OwnerAndRepo {
             owner: self.owner,
