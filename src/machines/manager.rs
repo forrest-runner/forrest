@@ -152,9 +152,10 @@ impl Manager {
 
             for _ in 0..count {
                 let cfg = cfg.clone();
+                let auth = self.auth.clone();
                 let rescheduler = self.rescheduler();
 
-                if let Some(m) = Machine::new(cfg, rescheduler, triplet.clone()) {
+                if let Some(m) = Machine::new(cfg, auth, rescheduler, triplet.clone()) {
                     machines.get_mut(&triplet).unwrap().push(m);
                 }
             }

@@ -1,11 +1,15 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
+use octocrab::models::actions::SelfHostedRunnerJitConfig;
+use octocrab::models::{RunnerGroupId, RunnerId};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use tokio::task::AbortHandle;
 
 use super::manager::Rescheduler;
 use super::triplet::Triplet;
+use crate::auth::Auth;
 use crate::config::{ConfigFile, MachineConfig};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -23,11 +27,14 @@ pub(super) enum Status {
 /// The mutable part of `Machine`.
 /// These are modified when the machine transitiones through the different states.
 struct Inner {
+    abort: Option<AbortHandle>,
+    jit_config: Option<SelfHostedRunnerJitConfig>,
     started: Option<Instant>,
     status: Status,
 }
 
 pub(super) struct Machine {
+    auth: Arc<Auth>,
     cfg: Arc<ConfigFile>,
     inner: Mutex<Inner>,
     rescheduler: Rescheduler,
@@ -75,6 +82,12 @@ impl std::fmt::Display for Status {
     }
 }
 
+impl Inner {
+    fn runner_id(&self) -> Option<RunnerId> {
+        self.jit_config.as_ref().map(|jc| jc.runner.id)
+    }
+}
+
 impl Machine {
     /// Get a new machine in the `Requested` state.
     ///
@@ -82,12 +95,15 @@ impl Machine {
     ///
     /// * `cfg` - The version of the config file this machine will use throughout
     ///   its lifetime.
+    /// * `auth` - The authentication cache we use to register the jit runner with
+    ///   GitHub. This has to know about the user in `triplet` already.
     /// * `rescheduler` - Used to trigger a reschedule from the `machines::Manager`
     ///   once the machine exits and its resources are available to other machines.
     /// * `triplet` - The (owner, repository, machine name) triplet that requested
     ///   this machine.
     pub(super) fn new(
         cfg: Arc<ConfigFile>,
+        auth: Arc<Auth>,
         rescheduler: Rescheduler,
         triplet: Triplet,
     ) -> Option<Arc<Self>> {
@@ -116,6 +132,8 @@ impl Machine {
 
         let inner = Mutex::new(Inner {
             status: Status::Requested,
+            abort: None,
+            jit_config: None,
             started: None,
         });
 
@@ -123,6 +141,7 @@ impl Machine {
             triplet,
             rescheduler,
             runner_name,
+            auth,
             cfg,
             inner,
         }))
@@ -210,7 +229,65 @@ impl Machine {
     fn register(self: &Arc<Self>, inner: &mut Inner) {
         assert_eq!(inner.status, Status::Requested);
 
+        let machine = self.clone();
+
+        let task = tokio::spawn(async move {
+            let triplet = machine.triplet();
+            let installation_octocrab = machine.auth.user(machine.triplet.owner()).unwrap();
+
+            let labels = vec![
+                "self-hosted".to_owned(),
+                "forrest".to_owned(),
+                triplet.machine_name().into(),
+            ];
+
+            let runner_group = RunnerGroupId(1);
+
+            let jit_config = installation_octocrab
+                .actions()
+                .create_repo_jit_runner_config(
+                    triplet.owner(),
+                    triplet.repository(),
+                    &machine.runner_name,
+                    runner_group,
+                    labels,
+                )
+                .send()
+                .await;
+
+            let mut inner = machine.inner();
+
+            match jit_config {
+                Ok(jc) => {
+                    debug!(
+                        "Registered jit runner for {}: {} {}",
+                        machine.triplet, machine.runner_name, jc.runner.id
+                    );
+
+                    inner.status = Status::Registered;
+                    inner.jit_config = Some(jc);
+                }
+                Err(err) => {
+                    error!(
+                        "Failed to register jit runner for {}: {err}",
+                        machine.triplet
+                    );
+
+                    inner.status = Status::Stopped;
+                }
+            }
+
+            // The task is about to end.
+            // No need to stop it from the outside anymore.
+            inner.abort = None;
+
+            // We must release the lock before calling reschedule
+            std::mem::drop(inner);
+            machine.rescheduler.reschedule();
+        });
+
         inner.status = Status::Registering;
+        inner.abort = Some(task.abort_handle());
 
         println!("Registering {self} as jit runner is not yet implemented");
         println!("Will pretend to do so instead");
@@ -244,6 +321,40 @@ impl Machine {
         println!("No VM was spawned for {self} so we can just pretend to kill it");
 
         inner_locked.status = Status::Stopped;
+
+        if let Some(runner_id) = inner_locked.runner_id() {
+            // We have to de-register the runner
+
+            let machine = self.clone();
+
+            tokio::spawn(async move {
+                let octocrab = machine.auth.user(machine.triplet.owner()).unwrap();
+
+                let res = octocrab
+                    .actions()
+                    .delete_repo_runner(
+                        machine.triplet.owner(),
+                        machine.triplet.repository(),
+                        runner_id,
+                    )
+                    .await;
+
+                machine.inner().jit_config = None;
+
+                match res {
+                    Ok(()) => info!(
+                        "De-registered {} on {}",
+                        machine.runner_name, machine.triplet
+                    ),
+                    Err(err) => {
+                        warn!(
+                            "Failed to de-register {} from {}: {err}",
+                            machine.runner_name, machine.triplet
+                        )
+                    }
+                }
+            });
+        }
     }
 
     /// Reguest a move of the machine through its state machine
@@ -307,7 +418,11 @@ impl Machine {
             // The job is complete and the machine about to stop
             (Status::Waiting, Some(false), _)
             | (Status::Running, Some(false), _)
-            | (Status::Running, _, false) => Status::Stopping,
+            | (Status::Running, _, false) => {
+                inner.jit_config = None;
+
+                Status::Stopping
+            }
         };
 
         if inner.status != new {
