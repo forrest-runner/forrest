@@ -18,4 +18,4 @@ jobs:
           fetch-depth: 0
       - run: git log --reverse > git-history.txt
       - run: python3 -m pip install codespell
-      - run: codespell
+      - run: codespell -D .dictionary -D -
