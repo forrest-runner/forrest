@@ -2,9 +2,7 @@ mod auth;
 mod config;
 mod machines;
 
-fn main() -> anyhow::Result<()> {
-    pretty_env_logger::init();
-
+async fn forrest() -> anyhow::Result<()> {
     let config_path = {
         let mut args: Vec<String> = std::env::args().collect();
 
@@ -39,4 +37,15 @@ fn main() -> anyhow::Result<()> {
     let _ = auth.user("hnez");
 
     Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
+    pretty_env_logger::init();
+
+    // Run in a single-threaded async runtime.
+    tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()?
+        .block_on(forrest())
 }
