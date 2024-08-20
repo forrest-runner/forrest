@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use log::error;
+use log::{error, info};
 use serde::Deserialize;
 
 mod duration_human;
@@ -100,6 +100,7 @@ impl Inner {
                 Ok(cf) => {
                     self.config_file = cf;
                     self.last_modified = last_modified;
+                    info!("Re-read config file {}", self.path.display());
                 }
                 Err(e) => {
                     error!("Failed to re-read config: {e}. Re-using previous version.");
