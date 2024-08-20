@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hmac::{Hmac, Mac};
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace, warn};
 use octocrab::models::webhook_events::EventInstallation;
 use octocrab::models::webhook_events::{WebhookEvent, WebhookEventPayload};
 use octocrab::models::workflows::Job;
@@ -255,8 +255,6 @@ async fn workflow_job_handler(
         OwnerAndRepo::new(owner, repository.name)
     };
 
-    debug!("Got workflow_job webhook event for {oar}!");
-
     let exists = config
         .repositories
         .get(oar.owner())
@@ -284,6 +282,11 @@ async fn workflow_job_handler(
             return;
         }
     };
+
+    info!(
+        "Got webhook event for {oar} with labels: {}",
+        workflow_job.labels.join(",")
+    );
 
     // Associate the user with their installation id so we can make API
     // requests on their behalf later.
