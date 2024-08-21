@@ -10,4 +10,5 @@ $ socat -,rawer,escape=0x1d UNIX-CONNECT:.../shell.sock
 ```
 
 > [!NOTE]
-> You need to press enter to get an initial prompt
+> You need to press enter to get an initial prompt.
+> To exit from the shell, press the `CTRL-]` escape code.
