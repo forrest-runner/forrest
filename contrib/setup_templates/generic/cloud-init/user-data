@@ -6,18 +6,6 @@ users:
 
 runcmd:
   - |
-    # Disable the ssh service on the machine.
-    # This should work with both Debian an Arch Linux machines.
-
-    for service in sshd.service ssh.service
-    do
-      if [ -e "/usr/lib/systemd/system/${service}" ]
-      then
-          systemctl disable --now --no-block "${service}"
-      fi
-    done
-
-  - |
     set -e -u
 
     # Provide a root shell on the secondary serial device
