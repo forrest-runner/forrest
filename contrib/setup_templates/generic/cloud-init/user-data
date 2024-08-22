@@ -45,7 +45,6 @@ runcmd:
     After=network.target cloud-final.service
 
     [Service]
-    ExecStartPre=+/usr/bin/cloud-init status --wait
     ExecStartPre=+/usr/bin/mount -o rw,fmask=0022,dmask=0022,uid=runner,gid=runner --mkdir /dev/disk/by-label/JOBDATA /home/runner/config
     ExecStart=/home/runner/config/job.sh
     ExecStopPost=+/usr/bin/systemctl poweroff
