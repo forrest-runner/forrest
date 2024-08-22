@@ -14,11 +14,22 @@ write_files:
       ExecStart=
       ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
 
+  - path: /etc/systemd/system/home-runner-config.mount
+    content: |
+      [Unit]
+      Description=Forrest Job config filesystem mount
+
+      [Mount]
+      What=/dev/disk/by-label/JOBDATA
+      Where=/home/runner/config
+      Options=rw,fmask=0022,dmask=0022,uid=runner,gid=runner
+
   - path: /etc/systemd/system/github-action-runner.service
     content: |
       [Unit]
       Description=GitHub JIT Runner
-      After=network.target cloud-final.service
+      After=network.target cloud-final.service home-runner-config.mount
+      Requires=home-runner-config.mount
 
       [Service]
       ExecStart=/home/runner/config/job.sh
