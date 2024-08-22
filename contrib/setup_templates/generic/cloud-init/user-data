@@ -4,30 +4,19 @@ users:
   - name: runner
     sudo: "ALL=(ALL) NOPASSWD:ALL"
 
+write_files:
+  - path: /etc/systemd/system/serial-getty@ttyS1.service.d/override.conf
+    content: |
+      # Provide a root shell on the secondary serial device
+      # (the one connected to shell.sock on the outside).
+
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+
 runcmd:
-  - |
-    set -e -u
-
-    # Provide a root shell on the secondary serial device
-    # (the one connected to shell.sock on the outside).
-
-    GETTY_SERVICE="serial-getty@ttyS1.service"
-    GETTY_DIR="/etc/systemd/system/${GETTY_SERVICE}.d/"
-    GETTY_OVERRIDE="${GETTY_DIR}/override.conf"
-
-    if ! test -e "${GETTY_OVERRIDE}"
-    then
-        mkdir -p "${GETTY_DIR}"
-        cat > "${GETTY_OVERRIDE}" << 'EOF'
-    [Service]
-    ExecStart=
-    ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
-    EOF
-
-        systemctl daemon-reload
-        systemctl enable --now --no-block "${GETTY_SERVICE}"
-    fi
-
+  - systemctl daemon-reload
+  - systemctl enable --now --no-block "serial-getty@ttyS1.service"
   - |
     set -e -u
 
