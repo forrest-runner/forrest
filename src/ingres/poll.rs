@@ -160,7 +160,7 @@ impl Poller {
     /// How far back to go in the run history is decided by `MAX_NEW_RUN_AGE`,
     /// the most recent run id already known for the repository and the list
     /// of runs the `create::jobs::Manager` is interested in.
-    pub async fn poll_once(&self) -> octocrab::Result<()> {
+    async fn poll_once(&self) -> octocrab::Result<()> {
         let cfg = self.config.get();
 
         // These are runs for which we have jobs in "interesting" states,

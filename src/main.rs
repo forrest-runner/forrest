@@ -47,10 +47,6 @@ async fn forrest() -> anyhow::Result<()> {
     // missed webhooks.
     let poller = ingres::Poller::new(config.clone(), auth.clone(), job_manager);
 
-    // Make sure we can reach GitHub and our authentication works before
-    // signaling readiness to systemd.
-    poller.poll_once().await?;
-
     log::info!("Startup complete. Handling requests");
 
     // Notify systemd that we are ready to handle requests.
