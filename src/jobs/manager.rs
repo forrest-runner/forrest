@@ -51,12 +51,7 @@ impl Manager {
                 let oar = job.triplet().clone().into_owner_and_repo();
                 let run_id = job.run_id();
 
-                if let Some(run_ids) = res.get_mut(&oar) {
-                    run_ids.insert(run_id);
-                } else {
-                    let run_ids = HashSet::from_iter([run_id]);
-                    res.insert(oar, run_ids);
-                }
+                res.entry(oar).or_default().insert(run_id);
             }
         }
 
