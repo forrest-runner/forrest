@@ -102,11 +102,9 @@ impl Manager {
         let mut demand: HashMap<Triplet, u64> = HashMap::new();
 
         for triplet in requested {
-            if let Some(count) = demand.get_mut(triplet) {
-                *count += 1
-            } else {
-                demand.insert(triplet.clone(), 1);
-            }
+            let count = demand.entry(triplet.clone()).or_insert(0);
+
+            *count += 1;
         }
 
         debug!("Updating the machine demand with:");
@@ -148,17 +146,13 @@ impl Manager {
         let cfg = self.config.get();
 
         for (triplet, count) in demand {
-            if !machines.contains_key(&triplet) {
-                machines.insert(triplet.clone(), Vec::new());
-            }
-
             for _ in 0..count {
                 let cfg = cfg.clone();
                 let auth = self.auth.clone();
                 let rescheduler = self.rescheduler();
 
                 if let Some(m) = Machine::new(cfg, auth, rescheduler, triplet.clone()) {
-                    machines.get_mut(&triplet).unwrap().push(m);
+                    machines.entry(triplet.clone()).or_default().push(m);
                 }
             }
         }
