@@ -12,7 +12,7 @@ use crate::machines::OwnerAndRepo;
 
 /// The cut-off point when fetching the initial run list.
 /// Once a run is encountered that is older than this the search will stop.
-const MAX_NEW_RUN_AGE: TimeDelta = TimeDelta::days(7);
+const MAX_NEW_RUN_AGE: TimeDelta = TimeDelta::days(1);
 
 pub struct Poller {
     auth: Arc<Auth>,
