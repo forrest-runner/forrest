@@ -13,6 +13,7 @@ chrono = "0.4"
 fatfs = "0.3"
 hex = "0.4"
 hmac = "0.12"
+http-body-util = "0.1"
 jsonwebtoken = "9.3"
 log = "0.4"
 octocrab = "0.39"
@@ -24,6 +25,14 @@ serde = "1.0"
 serde_json = "1.0"
 serde_yml = "0.0.12"
 sha2 = "0.10"
+
+[dependencies.hyper]
+version = "1.4"
+features = ["http1", "server"]
+
+[dependencies.hyper-util]
+version = "0.1"
+features = ["tokio"]
 
 [dependencies.tokio]
 version = "1.38"
