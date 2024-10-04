@@ -37,7 +37,6 @@ fn default_artifact_name() -> String {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-#[allow(dead_code)]
 pub struct Artifact {
     #[serde(default = "default_artifact_name")]
     pub name: String,
@@ -71,7 +70,6 @@ pub struct MachineConfig {
     pub shared: Vec<ExposedDirectory>,
 
     #[serde(default)]
-    #[allow(dead_code)]
     pub artifacts: Vec<Artifact>,
 }
 

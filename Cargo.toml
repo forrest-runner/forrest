@@ -36,4 +36,4 @@ features = ["tokio"]
 
 [dependencies.tokio]
 version = "1.45"
-features = ["io-util", "process", "rt", "macros"]
+features = ["fs", "io-util", "macros", "process", "rt"]
