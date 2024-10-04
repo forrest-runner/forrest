@@ -1,3 +1,4 @@
+mod api;
 mod auth;
 mod config;
 mod ingres;
@@ -42,6 +43,9 @@ async fn forrest() -> anyhow::Result<()> {
     let mut webhook =
         ingres::WebhookHandler::new(config.clone(), auth.clone(), job_manager.clone())?;
 
+    // Provide a single unix domain socket for all API requests.
+    let api = api::Api::new(config.clone())?;
+
     // Our secondary source of information are periodic polls of the GitHub API.
     // These come in handy at startup or after network outages when we may have
     // missed webhooks.
@@ -58,6 +62,7 @@ async fn forrest() -> anyhow::Result<()> {
     tokio::select! {
         res = machine_manager.janitor() => res,
         res = webhook.run() => res,
+        res = api.run() => res,
         res = poller.poll() => res,
     }?;
 
