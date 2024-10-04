@@ -10,11 +10,13 @@ use hyper_util::rt::TokioIo;
 use log::trace;
 use tokio::net::UnixListener;
 
+use crate::artifacts::ArtifactsHandler;
 use crate::config::Config;
 use crate::ingres::WebhookHandler;
 
 struct Handlers {
     webhook: WebhookHandler,
+    artifacts: ArtifactsHandler,
 }
 
 pub struct Api {
@@ -23,7 +25,11 @@ pub struct Api {
 }
 
 impl Api {
-    pub fn new(config: Config, webhook: WebhookHandler) -> std::io::Result<Self> {
+    pub fn new(
+        config: Config,
+        artifacts: ArtifactsHandler,
+        webhook: WebhookHandler,
+    ) -> std::io::Result<Self> {
         let listener = {
             let cfg = config.get();
 
@@ -39,7 +45,7 @@ impl Api {
             listener
         };
 
-        let handlers = Arc::new(Handlers { webhook });
+        let handlers = Arc::new(Handlers { artifacts, webhook });
 
         Ok(Self { listener, handlers })
     }
@@ -79,6 +85,7 @@ async fn api_handler(
     trace!("API request for: {}", first_path_component);
 
     match first_path_component {
+        "artifact" => handlers.artifacts.handle(request).await,
         "webhook" => handlers.webhook.handle(request).await,
         _ => Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
