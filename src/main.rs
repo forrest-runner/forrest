@@ -1,4 +1,5 @@
 mod api;
+mod artifacts;
 mod auth;
 mod config;
 mod ingres;
@@ -42,9 +43,14 @@ async fn forrest() -> anyhow::Result<()> {
     // These are POST requests sent by GitHub notifying us about events.
     let webhook = ingres::WebhookHandler::new(config.clone(), auth.clone(), job_manager.clone());
 
+    // Enable artifact upload from the guests. These are authenticated via a token given
+    // to the machines and (optionally) an additional token stored e.g. as GitHub action secret.
+    // They are limited in size by a quota set in the machine config.
+    let artifacts = artifacts::ArtifactsHandler::new(machine_manager.clone());
+
     // Provide a single unix domain socket for all API requests like webhook
-    // requests from GitHub.
-    let api = api::Api::new(config.clone(), webhook)?;
+    // requests from GitHub or artifact uploads from  the guests.
+    let api = api::Api::new(config.clone(), artifacts, webhook)?;
 
     // Our secondary source of information are periodic polls of the GitHub API.
     // These come in handy at startup or after network outages when we may have

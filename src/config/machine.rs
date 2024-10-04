@@ -31,10 +31,15 @@ pub struct ExposedDirectory {
     pub writable: bool,
 }
 
+fn default_artifact_name() -> String {
+    "artifact".into()
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct Artifact {
+    #[serde(default = "default_artifact_name")]
     pub name: String,
     pub path: String,
     pub url: String,
