@@ -1,23 +1,17 @@
-use std::fs::Permissions;
-use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
 
 use hmac::{Hmac, Mac};
 use http_body_util::BodyExt;
 use hyper::body::Incoming;
-use hyper::server::conn::http1::Builder as HttpConnectionBuilder;
-use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
-use hyper_util::rt::TokioIo;
 use log::{error, info, trace};
 use octocrab::models::webhook_events::EventInstallation;
 use octocrab::models::webhook_events::{WebhookEvent, WebhookEventPayload};
 use octocrab::models::workflows::Job;
 use sha2::Sha256;
-use tokio::net::UnixListener;
 
 use crate::auth::Auth;
-use crate::config::{Config, ConfigFile};
+use crate::config::Config;
 use crate::jobs::Manager as JobManager;
 use crate::machines::OwnerAndRepo;
 
@@ -25,65 +19,20 @@ pub struct WebhookHandler {
     config: Config,
     auth: Arc<Auth>,
     job_manager: JobManager,
-    listener: UnixListener,
 }
 
 impl WebhookHandler {
-    pub fn new(config: Config, auth: Arc<Auth>, job_manager: JobManager) -> std::io::Result<Self> {
-        let listener = {
-            let cfg = config.get();
-
-            let path = cfg.host.base_dir.join("webhook.sock");
-
-            let _ = std::fs::remove_file(&path);
-
-            let listener = UnixListener::bind(&path)?;
-
-            // Allow anyone on the system to connect to the socket.
-            std::fs::set_permissions(path, Permissions::from_mode(0o777))?;
-
-            listener
-        };
-
-        Ok(Self {
+    pub fn new(config: Config, auth: Arc<Auth>, job_manager: JobManager) -> Self {
+        Self {
             config,
             auth,
             job_manager,
-            listener,
-        })
-    }
-
-    pub async fn run(&mut self) -> std::io::Result<()> {
-        loop {
-            let (sock, _) = self.listener.accept().await?;
-            let config = self.config.get();
-            let auth = self.auth.clone();
-            let job_manager = self.job_manager.clone();
-
-            // Wrap the tokio socket in something that hyper understands.
-            let sock = TokioIo::new(sock);
-
-            tokio::task::spawn(async move {
-                // Wrap our handler function in something that hyper understands.
-                let service =
-                    service_fn(|conn| webhook_handler(conn, &config, &auth, &job_manager));
-
-                HttpConnectionBuilder::new()
-                    .serve_connection(sock, service)
-                    .await
-            });
         }
     }
-}
 
-async fn webhook_handler(
-    request: Request<Incoming>,
-    config: &ConfigFile,
-    auth: &Auth,
-    job_manager: &JobManager,
-) -> anyhow::Result<Response<String>> {
-    {
+    pub async fn handle(&self, request: Request<Incoming>) -> anyhow::Result<Response<String>> {
         let (parts, body) = request.into_parts();
+        let cfg = self.config.get();
 
         if parts.uri.path() != "/webhook" {
             return Ok(Response::builder()
@@ -145,7 +94,7 @@ async fn webhook_handler(
             }
         };
 
-        let secret = config.github.webhook_secret.as_bytes();
+        let secret = cfg.github.webhook_secret.as_bytes();
 
         let content = {
             let content = body.collect().await?.to_bytes();
@@ -216,7 +165,7 @@ async fn webhook_handler(
             OwnerAndRepo::new(owner, repository.name)
         };
 
-        let exists = config
+        let exists = cfg
             .repositories
             .get(oar.owner())
             .and_then(|repos| repos.get(oar.repository()))
@@ -260,10 +209,10 @@ async fn webhook_handler(
 
         // Associate the user with their installation id so we can make API
         // requests on their behalf later.
-        auth.update_user(oar.owner(), installation_id);
+        self.auth.update_user(oar.owner(), installation_id);
 
         if let Some(triplet) = oar.into_triplet_via_labels(&workflow_job.labels) {
-            job_manager.status_feedback(
+            self.job_manager.status_feedback(
                 &triplet,
                 workflow_job.id,
                 workflow_job.run_id,
