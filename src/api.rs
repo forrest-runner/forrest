@@ -1,5 +1,6 @@
 use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
 
 use hyper::body::Incoming;
 use hyper::server::conn::http1::Builder as HttpConnectionBuilder;
@@ -10,13 +11,19 @@ use log::trace;
 use tokio::net::UnixListener;
 
 use crate::config::Config;
+use crate::ingres::WebhookHandler;
+
+struct Handlers {
+    webhook: WebhookHandler,
+}
 
 pub struct Api {
     listener: UnixListener,
+    handlers: Arc<Handlers>,
 }
 
 impl Api {
-    pub fn new(config: Config) -> std::io::Result<Self> {
+    pub fn new(config: Config, webhook: WebhookHandler) -> std::io::Result<Self> {
         let listener = {
             let cfg = config.get();
 
@@ -32,19 +39,22 @@ impl Api {
             listener
         };
 
-        Ok(Self { listener })
+        let handlers = Arc::new(Handlers { webhook });
+
+        Ok(Self { listener, handlers })
     }
 
     pub async fn run(self) -> std::io::Result<()> {
         loop {
             let (sock, _) = self.listener.accept().await?;
+            let handlers = self.handlers.clone();
 
             // Wrap the tokio socket in something that hyper understands.
             let sock = TokioIo::new(sock);
 
             tokio::task::spawn(async move {
                 // Wrap our handler function in something that hyper understands.
-                let service = service_fn(api_handler);
+                let service = service_fn(|req| api_handler(req, &handlers));
 
                 HttpConnectionBuilder::new()
                     .serve_connection(sock, service)
@@ -54,7 +64,10 @@ impl Api {
     }
 }
 
-async fn api_handler(request: Request<Incoming>) -> anyhow::Result<Response<String>> {
+async fn api_handler(
+    request: Request<Incoming>,
+    handlers: &Handlers,
+) -> anyhow::Result<Response<String>> {
     let first_path_component = request
         .uri()
         .path()
@@ -65,8 +78,11 @@ async fn api_handler(request: Request<Incoming>) -> anyhow::Result<Response<Stri
 
     trace!("API request for: {}", first_path_component);
 
-    Ok(Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body("File not found".into())
-        .unwrap())
+    match first_path_component {
+        "webhook" => handlers.webhook.handle(request).await,
+        _ => Ok(Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body("File not found".into())
+            .unwrap()),
+    }
 }
