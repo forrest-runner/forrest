@@ -18,4 +18,6 @@ then
     tar --extract --file "${FILE}" --directory runner
 fi
 
+export FORREST_RUN_TOKEN_FILE="/home/runner/config/run-token"
+
 ./runner/run.sh --jitconfig <JITCONFIG>
