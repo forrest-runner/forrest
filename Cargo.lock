@@ -162,9 +162,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.9.4"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f"
+checksum = "b55271e5c8c478ad3f38ad24ef34923091e0548492a266d19b3c0b4d82574c63"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -529,9 +529,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.26.0"
+version = "0.27.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0bea761b46ae2b24eb4aef630d8d1c398157b6fc29e6350ecf090a0b70c952c"
+checksum = "2d191583f3da1305256f22463b9bb0471acad48a4e534a5218b9963e9c1f59b2"
 dependencies = [
  "futures-util",
  "http",
@@ -867,9 +867,9 @@ dependencies = [
 
 [[package]]
 name = "octocrab"
-version = "0.39.0"
+version = "0.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9305e4c99543ecd0f42bd659c9e9d6ca7115fe5e37d5c85a7277b1db0d4c4101"
+checksum = "86996964f8b721067b6ed238aa0ccee56ecad6ee5e714468aa567992d05d2b91"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -902,6 +902,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "url",
+ "web-time",
 ]
 
 [[package]]
@@ -1122,11 +1123,12 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.22.4"
+version = "0.23.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf4ef73721ac7bcd79b2b315da7779d8fc09718c6b3d2d1b2d94850eb8c18432"
+checksum = "730944ca083c1c233a75c09f199e973ca499344a2b7ba9e755c457e86fb4a321"
 dependencies = [
  "log",
+ "once_cell",
  "ring",
  "rustls-pki-types",
  "rustls-webpki",
@@ -1136,24 +1138,14 @@ dependencies = [
 
 [[package]]
 name = "rustls-native-certs"
-version = "0.7.3"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5bfb394eeed242e909609f56089eecfe5fda225042e8b171791b9c95f5931e5"
+checksum = "7fcff2dd52b58a8d98a70243663a0d234c4e2b79235637849d15913394a247d3"
 dependencies = [
  "openssl-probe",
- "rustls-pemfile",
  "rustls-pki-types",
  "schannel",
  "security-framework",
-]
-
-[[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]
@@ -1167,9 +1159,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.102.8"
+version = "0.103.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64ca1bc8749bd4cf37b5ce386cc146580777b4e8572c7b97baf22c83f444bee9"
+checksum = "e4a72fe2bcf7a6ac6fd7d0b9e5cb68aeb7d4c0a0271730218b3e92d43b4eb435"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -1208,18 +1200,18 @@ dependencies = [
 
 [[package]]
 name = "secrecy"
-version = "0.8.0"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bd1c54ea06cfd2f6b63219704de0b9b4f72dcc2b8fdef820be6cd799780e91e"
+checksum = "e891af845473308773346dc847b2c23ee78fe442e0472ac50e22a18a93d3ae5a"
 dependencies = [
  "zeroize",
 ]
 
 [[package]]
 name = "security-framework"
-version = "2.11.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
+checksum = "271720403f46ca04f7ba6f55d438f8bd878d6b8ca0a1046e8228c4145bcbb316"
 dependencies = [
  "bitflags 2.9.1",
  "core-foundation",
@@ -1413,6 +1405,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "sync_wrapper"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
+
+[[package]]
 name = "synstructure"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1523,12 +1521,11 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.25.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
+checksum = "8e727b36a1a0e8b74c376ac2211e40c2c8af09fb4013c60d910495810f008e9b"
 dependencies = [
  "rustls",
- "rustls-pki-types",
  "tokio",
 ]
 
@@ -1547,14 +1544,14 @@ dependencies = [
 
 [[package]]
 name = "tower"
-version = "0.4.13"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8fa9be0de6cf49e536ce1851f987bd21a43b771b09473c3549a6c853db37c1c"
+checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
 dependencies = [
  "futures-core",
  "futures-util",
- "pin-project",
  "pin-project-lite",
+ "sync_wrapper",
  "tokio",
  "tokio-util",
  "tower-layer",
@@ -1564,16 +1561,15 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.5.2"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e9cd434a998747dd2c4276bc96ee2e0c7a2eadf3cae88e52be55a05fa9053f5"
+checksum = "0fdb0c213ca27a9f57ab69ddb290fd80d970922355b83ae380b395d3986b8a2e"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
  "futures-util",
  "http",
  "http-body",
- "http-body-util",
  "iri-string",
  "pin-project-lite",
  "tower",
@@ -1751,6 +1747,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a05d73b933a847d6cccdda8f838a22ff101ad9bf93e33684f39c1f5f0eece3d"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "web-time"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]
