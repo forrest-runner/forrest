@@ -82,6 +82,7 @@ pub(super) struct Machine {
     inner: Mutex<Inner>,
     rescheduler: Rescheduler,
     runner_name: String,
+    run_token: String,
     triplet: Triplet,
 }
 
@@ -180,6 +181,12 @@ impl Machine {
             String::from_utf8(name).unwrap()
         };
 
+        let run_token = {
+            let ascii_bytes: Vec<u8> = rng().sample_iter(&Alphanumeric).take(16).collect();
+
+            String::from_utf8(ascii_bytes).unwrap()
+        };
+
         let inner = Mutex::new(Inner {
             status: Status::Requested,
             run_dir: None,
@@ -192,6 +199,7 @@ impl Machine {
             triplet,
             rescheduler,
             runner_name,
+            run_token,
             auth,
             cfg,
             inner,
@@ -225,6 +233,10 @@ impl Machine {
 
     pub(super) fn triplet(&self) -> &Triplet {
         &self.triplet
+    }
+
+    pub(super) fn run_token(&self) -> &str {
+        &self.run_token
     }
 
     pub(super) fn machine_config(&self) -> &MachineConfig {
