@@ -82,7 +82,7 @@ Differences between public GitHub runners and running on Forrest:
 - The images provided by e.g. Debian are very minimal and un-configured
   and may be out of date, hence why the jobs set the locale perform an
   update and have to install basic software like `git`.
-- Machine images can be persistend and re-used in later runs via the
+- Machine images can be persistend and reused in later runs via the
   `PERSISTENCE_TOKEN`.
 
 Not that the `yocto` job is based on `base` in two ways:

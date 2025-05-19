@@ -81,9 +81,9 @@ impl Manager {
         online: Option<bool>,
         busy: bool,
     ) -> bool {
-        let mut machines = self.machines();
+        let machines = self.machines();
 
-        let machine = machines.get_mut(triplet).and_then(|triplet_machines| {
+        let machine = machines.get(triplet).and_then(|triplet_machines| {
             triplet_machines
                 .iter()
                 .find(|machine| machine.runner_name() == runner_name)
