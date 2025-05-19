@@ -26,5 +26,5 @@ serde_yaml_ng = "0.10"
 sha2 = "0.10"
 
 [dependencies.tokio]
-version = "1.38"
+version = "1.45"
 features = ["io-util", "process", "rt", "macros"]
