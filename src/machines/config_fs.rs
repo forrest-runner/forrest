@@ -21,10 +21,10 @@ impl ConfigFs {
     /// * `size` - The size in bytes of the disk image and filesystem.
     /// * `labels` - The volume label to use. This is truncated at 11 characters.
     /// * `template_path` - The directory to scan for files to place into the image.
-    ///    Note that text in the files will be replaced based on `substitutions`.
-    ///    This means that only plain text files may be present in the `template_path`.
+    ///   Note that text in the files will be replaced based on `substitutions`.
+    ///   This means that only plain text files may be present in the `template_path`.
     /// * `substitutions` - Pairs of from -> to text replacements to perform on all files
-    ///    in the `template_path`.
+    ///   in the `template_path`.
     ///
     /// The image file is removed from the file system as soon as the return value is dropped.
     pub fn new(
