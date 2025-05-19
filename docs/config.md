@@ -117,7 +117,7 @@ The default interval is 15 minutes and should not be reduced too far.
 (Optional)
 
 All top level configuration fields that end in `_snippets` are ignored.
-These can be used to create config snippets that can be re-used in other
+These can be used to create config snippets that can be reused in other
 config sections.
 
 # `repositories.<user>.<repository>`

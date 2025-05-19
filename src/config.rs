@@ -103,7 +103,7 @@ impl Inner {
                     info!("Re-read config file {}", self.path.display());
                 }
                 Err(e) => {
-                    error!("Failed to re-read config: {e}. Re-using previous version.");
+                    error!("Failed to re-read config: {e}. Reusing previous version.");
                 }
             }
         }
