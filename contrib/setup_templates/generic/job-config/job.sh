@@ -18,4 +18,7 @@ then
     tar --extract --file "${FILE}" --directory runner
 fi
 
+export FORREST_API_URL="http://10.0.2.2:8080"
+export FORREST_RUN_TOKEN_FILE="/home/runner/config/run-token"
+
 ./runner/run.sh --jitconfig <JITCONFIG>
