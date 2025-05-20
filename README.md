@@ -22,6 +22,23 @@ This means Forrests helps you to:
     allowing you to e.g. run actions for public repositories with pull requests
     from the community.
 
+Example Users
+-------------
+
+### Forrest Machine Image Generation
+
+- [pengutronix/forrest-images](https://github.com/pengutronix/forrest-images)
+
+  Used at Pengutronix to derive Forrest machine images for Debos, PTXDist and
+  Yocto from basic Debian cloud images.
+
+### Yocto Board Support Packages
+
+- [labgrid-project/meta-labgrid](https://github.com/labgrid-project/meta-labgrid/)
+- [linux-automation/meta-lxatac](https://github.com/linux-automation/meta-lxatac/)
+- [pengutronix/meta-ptx](https://github.com/pengutronix/meta-ptx/)
+- [rauc/meta-rauc-community](https://github.com/rauc/meta-rauc-community/)
+- [rauc/meta-rauc](https://github.com/rauc/meta-rauc/)
 
 Documentation
 -------------
