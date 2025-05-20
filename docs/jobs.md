@@ -18,7 +18,7 @@ on your situation.
 In this example we generate images for use in other machines.
 
 The workflow file to generate debian bases images
-(taken from [hnez/forrest-images](https://github.com/hnez/forrest-images/)):
+(taken from [pengutronix/forrest-images](https://github.com/pengutronix/forrest-images/)):
 
 ```yaml
 # .github/workflows/debian.yaml
@@ -28,13 +28,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  base:
-    name: Base
-    runs-on: [self-hosted, forrest, debian-base]
+  bookworm-base:
+    name: Base (bookworm)
+    runs-on: [self-hosted, forrest, debian-bookworm-base]
     steps:
-      - name: Set up runner machine
+      - name: Install essential packages
         run: |
           sudo localectl set-locale en_US.UTF-8
           export DEBIAN_FRONTEND=noninteractive
@@ -42,38 +43,35 @@ jobs:
           sudo -E apt-get update
           sudo -E apt-get --assume-yes dist-upgrade
           sudo -E apt-get --assume-yes install git
-          sudo -E apt-get --assume-yes autoremove
-          sudo -E apt-get --assume-yes clean
-      - name: Persist the disk image
-        env:
-          PERSISTENCE_TOKEN: ${{ secrets.PERSISTENCE_TOKEN }}
-        if: ${{ env.PERSISTENCE_TOKEN != ''  }}
-        run: |
-          sudo fstrim /
-          echo "$PERSISTENCE_TOKEN" > ~/config/persist
 
-  yocto:
-    name: Yocto
-    needs: base
-    runs-on: [self-hosted, forrest, debian-yocto]
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: setup-data
+
+      - name: Set up runner machine
+        run: $PWD/setup-data/base/setup.sh
+
+      - uses: forrest-runner/persist@main
+        with:
+          token: ${{ secrets.PERSISTENCE_TOKEN }}
+
+  bookworm-yocto:
+    name: Yocto (bookworm)
+    needs: bookworm-base
+    runs-on: [self-hosted, forrest, debian-bookworm-yocto]
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: setup-data
+
       - name: Install Software
-        run: |
-          sudo localectl set-locale en_US.UTF-8
-          export DEBIAN_FRONTEND=noninteractive
-          export DPKG_FORCE=confnew
-          sudo -E apt-get update
-          sudo -E apt-get --assume-yes dist-upgrade
-          sudo -E apt-get --assume-yes install build-essential chrpath diffstat gawk git lz4
-          sudo -E apt-get --assume-yes autoremove
-          sudo -E apt-get --assume-yes clean
-      - name: Persist the disk image
-        env:
-          PERSISTENCE_TOKEN: ${{ secrets.PERSISTENCE_TOKEN }}
-        if: ${{ env.PERSISTENCE_TOKEN != ''  }}
-        run: |
-          sudo fstrim /
-          echo "$PERSISTENCE_TOKEN" > ~/config/persist
+        run: $PWD/setup-data/yocto/setup.sh
+
+      - uses: forrest-runner/persist@main
+        with:
+          token: ${{ secrets.PERSISTENCE_TOKEN }}
 ```
 
 Differences between public GitHub runners and running on Forrest:
@@ -85,11 +83,12 @@ Differences between public GitHub runners and running on Forrest:
 - Machine images can be persistend and reused in later runs via the
   `PERSISTENCE_TOKEN`.
 
-Not that the `yocto` job is based on `base` in two ways:
+Not that the `bookworm-yocto` job is based on `bookworm-base` in two ways:
 
-- Via the Forrest config file, which specifies `hnez/forrest-images/debian-base`
-  as the `base_machine` for `debian-yocto`.
-- Via the `needs: base` entry in the job file.
+- Via the Forrest config file, which specifies
+  `pengutronix/forrest-images/debian-bookworm-base`
+  as the `base_machine` for `debian-bookworm-yocto`.
+- Via the `needs: bookworm-base` entry in the job file.
 
 Build Jobs
 ----------
