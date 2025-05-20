@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use log::error;
 use octocrab::models::InstallationId;
 use octocrab::Octocrab;
 
@@ -47,10 +48,22 @@ impl Auth {
             .map(|(stored_id, _)| *stored_id == id)
             .unwrap_or(false);
 
-        if !is_up_to_date {
-            let oc = Arc::new(self.app.installation(id));
-            users.insert(user.to_string(), (id, oc));
+        if is_up_to_date {
+            // No need to update the installation id to user mapping,
+            // since it is already up to date (this is the common case).
+            return;
         }
+
+        let installation = match self.app.installation(id) {
+            Ok(i) => i,
+            Err(e) => {
+                error!("Failed to get app installation by id: {e}");
+                return;
+            }
+        };
+
+        let oc = Arc::new(installation);
+        users.insert(user.to_string(), (id, oc));
     }
 
     /// Get an Octocrab instance authenticated as `user`

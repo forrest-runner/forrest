@@ -37,9 +37,9 @@ pub struct Config {
 }
 
 impl ConfigFile {
-    fn from_file(fd: &mut File) -> serde_yml::Result<Arc<Self>> {
-        // First we read the config file as generic serde_yml Value.
-        let mut cfg: serde_yml::Value = serde_yml::from_reader(fd)?;
+    fn from_file(fd: &mut File) -> serde_yaml_ng::Result<Arc<Self>> {
+        // First we read the config file as generic serde_yaml_ng Value.
+        let mut cfg: serde_yaml_ng::Value = serde_yaml_ng::from_reader(fd)?;
 
         // Then we apply merges / overrides like these:
         //
@@ -67,7 +67,7 @@ impl ConfigFile {
         }
 
         // And then we convert to our config format.
-        let cfg = serde_yml::from_value(cfg)?;
+        let cfg = serde_yaml_ng::from_value(cfg)?;
 
         Ok(Arc::new(cfg))
     }

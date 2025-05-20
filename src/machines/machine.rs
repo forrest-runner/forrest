@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use log::{debug, error, info, warn};
 use octocrab::models::RunnerGroupId;
 use octocrab::models::{actions::SelfHostedRunnerJitConfig, RunnerId};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use rand::{distr::Alphanumeric, rng, Rng};
 use tokio::{process::Command, task::AbortHandle};
 
 use super::manager::{Machines, Rescheduler};
@@ -175,7 +175,7 @@ impl Machine {
 
             name.extend(triplet.machine_name().as_bytes());
             name.push(b'-');
-            name.extend(thread_rng().sample_iter(&Alphanumeric).take(16));
+            name.extend(rng().sample_iter(&Alphanumeric).take(16));
 
             String::from_utf8(name).unwrap()
         };
