@@ -1,3 +1,4 @@
+mod api;
 mod auth;
 mod config;
 mod ingres;
@@ -39,8 +40,11 @@ async fn forrest() -> anyhow::Result<()> {
 
     // The main method to learn about new jobs to run is via webhooks.
     // These are POST requests sent by GitHub notifying us about events.
-    let mut webhook =
-        ingres::WebhookHandler::new(config.clone(), auth.clone(), job_manager.clone())?;
+    let webhook = ingres::WebhookHandler::new(config.clone(), auth.clone(), job_manager.clone());
+
+    // Provide a single unix domain socket for all API requests like webhook
+    // requests from GitHub.
+    let api = api::Api::new(config.clone(), webhook)?;
 
     // Our secondary source of information are periodic polls of the GitHub API.
     // These come in handy at startup or after network outages when we may have
@@ -57,7 +61,7 @@ async fn forrest() -> anyhow::Result<()> {
 
     tokio::select! {
         res = machine_manager.janitor() => res,
-        res = webhook.run() => res,
+        res = api.run() => res,
         res = poller.poll() => res,
     }?;
 
