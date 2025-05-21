@@ -292,10 +292,7 @@ async fn workflow_job_handler(
     // requests on their behalf later.
     auth.update_user(oar.owner(), installation_id);
 
-    let triplet = match oar.into_triplet_via_labels(&workflow_job.labels) {
-        Some(triplet) => triplet,
-        None => return,
-    };
+    let triplet = oar.into_triplet(workflow_job.labels);
 
     job_manager.status_feedback(
         &triplet,

@@ -157,11 +157,19 @@ impl Machine {
         rescheduler: Rescheduler,
         triplet: Triplet,
     ) -> Option<Arc<Self>> {
+        let machine_name = match triplet.machine_name() {
+            Ok(machine_name) => machine_name,
+            Err(e) => {
+                debug!("Got request with unsupported label combination: {e}");
+                return None;
+            }
+        };
+
         let machine_config = cfg
             .repositories
             .get(triplet.owner())
             .and_then(|repos| repos.get(triplet.repository()))
-            .and_then(|repo| repo.machines.get(triplet.machine_name()));
+            .and_then(|repo| repo.machines.get(machine_name));
 
         if machine_config.is_none() {
             error!("Got request for unknown machine triplet: {triplet}");
@@ -173,7 +181,7 @@ impl Machine {
 
             let mut name = b"forrest-".to_vec();
 
-            name.extend(triplet.machine_name().as_bytes());
+            name.extend(machine_name.as_bytes());
             name.push(b'-');
             name.extend(rng().sample_iter(&Alphanumeric).take(16));
 
@@ -230,12 +238,13 @@ impl Machine {
     pub(super) fn machine_config(&self) -> &MachineConfig {
         let cfg = self.cfg();
         let triplet = self.triplet();
+        let machine_name = triplet.machine_name().unwrap();
 
         let machine_config = cfg
             .repositories
             .get(triplet.owner())
             .and_then(|repos| repos.get(triplet.repository()))
-            .and_then(|repo| repo.machines.get(triplet.machine_name()));
+            .and_then(|repo| repo.machines.get(machine_name));
 
         machine_config.unwrap()
     }
@@ -286,12 +295,6 @@ impl Machine {
             let triplet = machine.triplet();
             let installation_octocrab = machine.auth.user(machine.triplet.owner()).unwrap();
 
-            let labels = vec![
-                "self-hosted".to_owned(),
-                "forrest".to_owned(),
-                triplet.machine_name().into(),
-            ];
-
             let runner_group = RunnerGroupId(1);
 
             let jit_config = installation_octocrab
@@ -301,7 +304,7 @@ impl Machine {
                     triplet.repository(),
                     &machine.runner_name,
                     runner_group,
-                    labels,
+                    triplet.labels(),
                 )
                 .send()
                 .await;
@@ -510,7 +513,17 @@ impl Machine {
                     }
                 };
 
-                let run_dir = RunDir::new(self, machines, encoded_jit_config);
+                let triplet = self.triplet();
+                let orm = triplet.clone().into_owner_repo_machine().unwrap();
+
+                let run_dir = RunDir::new(
+                    &orm,
+                    self.cfg(),
+                    self.machine_config(),
+                    self.runner_name(),
+                    machines,
+                    encoded_jit_config,
+                );
 
                 match run_dir {
                     Ok(run_dir) => inner.run_dir = run_dir,
