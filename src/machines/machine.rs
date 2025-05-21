@@ -43,15 +43,15 @@ const QEMU_ARGS: &[&[&str]] = &[
     ],
     &[
         "-drive",
-        "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=off,cache.no-flush=on,file=disk.img",
+        "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=on,cache.no-flush=on,file=disk.img",
     ],
     &[
         "-drive",
-        "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=off,cache.no-flush=on,file=cloud-init.img",
+        "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=on,cache.no-flush=on,file=cloud-init.img",
     ],
     &[
         "-drive",
-        "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=off,cache.no-flush=on,file=job-config.img",
+        "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=on,cache.no-flush=on,file=job-config.img",
     ],
 ];
 
