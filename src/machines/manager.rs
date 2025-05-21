@@ -251,11 +251,7 @@ impl Manager {
 
                         let labels: Vec<_> =
                             runner.labels.into_iter().map(|label| label.name).collect();
-
-                        let triplet = match oar.clone().into_triplet_via_labels(&labels) {
-                            Some(triplet) => triplet,
-                            None => continue,
-                        };
+                        let triplet = oar.clone().into_triplet(labels);
 
                         // Is the runner online (the action runner software on the machine is
                         // connected to GitHubs servers) right now?
@@ -317,7 +313,15 @@ impl Manager {
                 if start_timeout_elapsed {
                     error!("Runner {runner_name} on {triplet} failed to come up in time");
 
-                    let machine_image_path = triplet.machine_image_path(base_dir_path);
+                    let orm = match triplet.clone().into_owner_repo_machine() {
+                        Ok(orm) => orm,
+                        Err(e) => {
+                            debug!("Ignoring machine {triplet} during sweep: {e}");
+                            continue;
+                        }
+                    };
+
+                    let machine_image_path = orm.machine_image_path(base_dir_path);
 
                     machine.kill();
 

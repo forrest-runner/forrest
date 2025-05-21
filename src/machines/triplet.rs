@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use log::debug;
+use anyhow::bail;
 use serde::de::{Deserialize, Deserializer, Error};
 
 #[derive(PartialEq, Eq, Clone, Hash)]
@@ -11,6 +11,12 @@ pub struct OwnerAndRepo {
 
 #[derive(PartialEq, Eq, Clone, Hash)]
 pub struct Triplet {
+    owner: String,
+    repository: String,
+    labels: Vec<String>,
+}
+
+pub struct OwnerRepoMachine {
     owner: String,
     repository: String,
     machine_name: String,
@@ -24,35 +30,12 @@ impl OwnerAndRepo {
         }
     }
 
-    pub fn into_triplet(self, machine_name: impl ToString) -> Triplet {
+    pub fn into_triplet(self, labels: Vec<String>) -> Triplet {
         Triplet {
             owner: self.owner,
             repository: self.repository,
-            machine_name: machine_name.to_string(),
+            labels,
         }
-    }
-
-    pub fn into_triplet_via_labels(self, labels: &[String]) -> Option<Triplet> {
-        if labels.len() != 3 {
-            debug!("Ignoring job with {} != 3 labels on {self}", labels.len());
-            return None;
-        }
-
-        let self_hosted = &labels[0];
-        let forrest = &labels[1];
-        let machine_name = &labels[2];
-
-        if self_hosted != "self-hosted" {
-            debug!("Ignoring job with '{self_hosted}' instead of 'self-hosted' as first label");
-            return None;
-        }
-
-        if forrest != "forrest" {
-            debug!("Ignoring job with '{forrest}' instead of 'forrest' as first label");
-            return None;
-        }
-
-        Some(self.into_triplet(machine_name))
     }
 
     pub fn owner(&self) -> &str {
@@ -71,18 +54,87 @@ impl std::fmt::Display for OwnerAndRepo {
 }
 
 impl Triplet {
-    pub fn new(
-        owner: impl ToString,
-        repository: impl ToString,
-        machine_name: impl ToString,
-    ) -> Self {
-        Self {
-            owner: owner.to_string(),
-            repository: repository.to_string(),
-            machine_name: machine_name.to_string(),
+    pub fn owner(&self) -> &str {
+        &self.owner
+    }
+
+    pub fn repository(&self) -> &str {
+        &self.repository
+    }
+
+    pub fn labels(&self) -> &[String] {
+        &self.labels
+    }
+
+    pub fn machine_name(&self) -> anyhow::Result<&str> {
+        match self.labels.as_slice() {
+            [single] => match single.strip_prefix("self-hosted/forrest/") {
+                Some(machine_name) => Ok(machine_name),
+                None => bail!("Single label does not match shorthand format"),
+            },
+            [self_hosted, forrest, machine_name] => {
+                if self_hosted != "self-hosted" {
+                    bail!("First of three labels is not \"self-hosted\"");
+                }
+
+                if forrest != "forrest" {
+                    bail!("Second of three labels is not \"forrest\"");
+                }
+
+                Ok(machine_name)
+            }
+            _ => {
+                bail!(
+                    "Job has unsupported number of labels: {}",
+                    self.labels.len()
+                );
+            }
         }
     }
 
+    pub fn into_owner_repo_machine(self) -> anyhow::Result<OwnerRepoMachine> {
+        let machine_name = self.machine_name()?.to_owned();
+
+        let orm = OwnerRepoMachine {
+            owner: self.owner,
+            repository: self.repository,
+            machine_name,
+        };
+
+        Ok(orm)
+    }
+
+    pub fn into_owner_and_repo(self) -> OwnerAndRepo {
+        OwnerAndRepo {
+            owner: self.owner,
+            repository: self.repository,
+        }
+    }
+}
+
+impl std::fmt::Display for Triplet {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} {} [", self.owner, self.repository)?;
+
+        let nl = self.labels.len() - 2;
+
+        for label in &self.labels[..(nl - 2)] {
+            write!(f, "{}, ", label)?;
+        }
+
+        write!(f, "{}]", self.labels[nl - 1])?;
+
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for Triplet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
+impl OwnerRepoMachine {
     pub fn owner(&self) -> &str {
         &self.owner
     }
@@ -93,13 +145,6 @@ impl Triplet {
 
     pub fn machine_name(&self) -> &str {
         &self.machine_name
-    }
-
-    pub fn into_owner_and_repo(self) -> OwnerAndRepo {
-        OwnerAndRepo {
-            owner: self.owner,
-            repository: self.repository,
-        }
     }
 
     pub(super) fn run_dir_path(&self, base_dir_path: &Path, runner_name: &str) -> PathBuf {
@@ -120,30 +165,14 @@ impl Triplet {
     }
 }
 
-impl std::fmt::Display for Triplet {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}/{}/{}",
-            self.owner, self.repository, self.machine_name
-        )
-    }
-}
-
-impl std::fmt::Debug for Triplet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self, f)
-    }
-}
-
-impl<'de> Deserialize<'de> for Triplet {
+impl<'de> Deserialize<'de> for OwnerRepoMachine {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let triplet_str: String = Deserialize::deserialize(deserializer)?;
+        let orm_str: String = Deserialize::deserialize(deserializer)?;
 
-        let parts: Vec<&str> = triplet_str.split('/').collect();
+        let parts: Vec<&str> = orm_str.split('/').collect();
         let parts_len = parts.len();
 
         if parts_len != 3 {
@@ -153,6 +182,22 @@ impl<'de> Deserialize<'de> for Triplet {
             ));
         }
 
-        Ok(Self::new(parts[0], parts[1], parts[2]))
+        let orm = OwnerRepoMachine {
+            owner: parts[0].to_owned(),
+            repository: parts[1].to_owned(),
+            machine_name: parts[2].to_owned(),
+        };
+
+        Ok(orm)
+    }
+}
+
+impl std::fmt::Display for OwnerRepoMachine {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}/{}/{}",
+            self.owner, self.repository, self.machine_name
+        )
     }
 }
