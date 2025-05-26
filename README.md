@@ -10,61 +10,35 @@ Forrest - A GitHub Action Runner Runner
 > Now you wouldn’t believe me if I told you, but I could run like the wind blows.<br/>
 > From that day on, if I was goin’ somewhere, I was runnin’!
 
-Forrest takes a single host computer and uses it to run multiple virtual
-machines with GitHub action runners in them.
+Forrest talks to the GitHub API and spawns a virtual machine using QEMU/KVM
+whenever a runner is required to run an action.
 
-The Gist
---------
+This means Forrests helps you to:
 
-The virtual machine disk images used are ephermal and removed after a run
-completes, but may optionally be persisted to enable pre-generation of images
-or to speed up builds.
+  - Run actions on your own hardware, either because you need more powerful
+    machines, want to run actions in your own network or want to cache
+    artifacts locally.
+  - Isolate action runs from one another and the hardware they are running on,
+    allowing you to e.g. run actions for public repositories with pull requests
+    from the community.
 
-The following diagram illustrates the possible evolution of an image:
+Example Users
+-------------
 
-```
-src    machine    run
- ╻
- ┣━━━━━━━━━━━━━━━━━┓
- ┃                 ┠─╴Start of a build job for the main branch of the repository.
- ┃                 ┃  The disk image is copied using a reflink copy to create a
- ┃                 ┃  fork of the image that the job can read and write to without
- ┃                 ┃  affecting the src image.
- ┃                 ┃
- ┃                 ┠─╴A virtual machine is started that uses the forked image
- ┃                 ┃  as disk image.
- ┋                 ┋
- ┃                 ┠─╴The job succeeds and provides the correct PERSISTENCE_TOKEN
- ┃                 ┃  for this repository from its GitHub secrets.
- ┃        ┏━━━━━━━━┛
- ┃        ┠──────────╴The disk image left behind by the job becomes the new
- ┃        ┃           base image for this machine.
- ┃        ┃
- ┃        ┣━━━━━━━━┓
- ┃        ┃        ┠─╴Start of a build job for a pull request.
- ┃        ┃        ┃  The job can use everything the previous run left behind to
- ┃        ┃        ┃  speed up the build process.
- ┋        ┋        ┋
- ┃        ┃        ┠─╴The job succeeds but can not provide the PERSISTENCE_TOKEN,
- ┃        ┃        ┃  because secrets are not available to runs on pull requests.
- ┃        ┃        ┃
- ┃        ┃        ┞─╴The disk image for this job is removed.
- ┃        ┃
- ┋        ┋
-```
- 
-The different stages an image can be in are:
+### Forrest Machine Image Generation
 
-- `src` - A base image, these can for example be provided by a Linux Distribution.
-  It is also possible to use a machine image from _another_ machine as a base image,
-  but we will get to that later in the documentation.
-- `machine` - A base image for a run of a specific machine type.
-  We will get to what a machine type _is_ later in the documentation as well,
-  but for now it just means that later runs will use this image as a base
-  instead of `src`.
-- `run` - The ephermal virtual machine disk image used in a run.
-  The image may be persisted at the end of a run, but could also just be thrown
-  away.
+- [pengutronix/forrest-images](https://github.com/pengutronix/forrest-images)
+
+  Used at Pengutronix to derive Forrest machine images for Debos, PTXDist and
+  Yocto from basic Debian cloud images.
+
+### Yocto Board Support Packages
+
+- [labgrid-project/meta-labgrid](https://github.com/labgrid-project/meta-labgrid/)
+- [linux-automation/meta-lxatac](https://github.com/linux-automation/meta-lxatac/)
+- [pengutronix/meta-ptx](https://github.com/pengutronix/meta-ptx/)
+- [rauc/meta-rauc-community](https://github.com/rauc/meta-rauc-community/)
+- [rauc/meta-rauc](https://github.com/rauc/meta-rauc/)
 
 Documentation
 -------------
