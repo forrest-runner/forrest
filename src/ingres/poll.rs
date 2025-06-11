@@ -98,10 +98,7 @@ impl Poller {
             }
 
             for job in jobs.items {
-                let triplet = match oar.clone().into_triplet_via_labels(&job.labels) {
-                    Some(triplet) => triplet,
-                    None => continue,
-                };
+                let triplet = oar.clone().into_triplet(job.labels);
 
                 // Update the job state in the job manager or create the job there
                 // in the first place.
