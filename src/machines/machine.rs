@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::fmt::Write;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -74,15 +75,23 @@ struct Inner {
     run_dir: Option<RunDir>,
     started: Option<Instant>,
     status: Status,
+    artifact_quota_remaining: Vec<u64>,
 }
 
-pub(super) struct Machine {
+pub struct Machine {
     auth: Arc<Auth>,
     cfg: Arc<ConfigFile>,
     inner: Mutex<Inner>,
     rescheduler: Rescheduler,
     runner_name: String,
+    run_token: String,
     triplet: Triplet,
+}
+
+pub struct Artifact<'a> {
+    config: &'a crate::config::Artifact,
+    machine: &'a Machine,
+    quota_index: usize,
 }
 
 impl Status {
@@ -163,10 +172,13 @@ impl Machine {
             .and_then(|repos| repos.get(triplet.repository()))
             .and_then(|repo| repo.machines.get(triplet.machine_name()));
 
-        if machine_config.is_none() {
-            error!("Got request for unknown machine triplet: {triplet}");
-            return None;
-        }
+        let machine_config = match machine_config {
+            Some(mc) => mc,
+            None => {
+                error!("Got request for unknown machine triplet: {triplet}");
+                return None;
+            }
+        };
 
         let runner_name = {
             // Build a runner name like "forrest-build-rHCiNOhFdypjtnfj"
@@ -180,18 +192,32 @@ impl Machine {
             String::from_utf8(name).unwrap()
         };
 
+        let run_token = {
+            let ascii_bytes: Vec<u8> = rng().sample_iter(&Alphanumeric).take(16).collect();
+
+            String::from_utf8(ascii_bytes).unwrap()
+        };
+
+        let artifact_quota_remaining = machine_config
+            .artifacts
+            .iter()
+            .map(|a| a.quota.bytes())
+            .collect();
+
         let inner = Mutex::new(Inner {
             status: Status::Requested,
             run_dir: None,
             abort: None,
             jit_config: None,
             started: None,
+            artifact_quota_remaining,
         });
 
         Some(Arc::new(Self {
             triplet,
             rescheduler,
             runner_name,
+            run_token,
             auth,
             cfg,
             inner,
@@ -227,6 +253,10 @@ impl Machine {
         &self.triplet
     }
 
+    pub(super) fn run_token(&self) -> &str {
+        &self.run_token
+    }
+
     pub(super) fn machine_config(&self) -> &MachineConfig {
         let cfg = self.cfg();
         let triplet = self.triplet();
@@ -238,6 +268,30 @@ impl Machine {
             .and_then(|repo| repo.machines.get(triplet.machine_name()));
 
         machine_config.unwrap()
+    }
+
+    pub fn artifact(&self, name: &str, extra_token: &str) -> Option<Artifact> {
+        let machine_config = self.machine_config();
+
+        for (quota_index, config) in machine_config.artifacts.iter().enumerate() {
+            if config.name != name {
+                continue;
+            }
+
+            if let Some(et) = &config.token {
+                if et != extra_token {
+                    continue;
+                }
+            }
+
+            return Some(Artifact {
+                config,
+                machine: self,
+                quota_index,
+            });
+        }
+
+        None
     }
 
     /// The amount of RAM (in bytes) the machine may currently consume
@@ -584,5 +638,38 @@ impl Machine {
 impl std::fmt::Display for Machine {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} {}", self.triplet, self.runner_name)
+    }
+}
+
+impl<'a> Artifact<'a> {
+    pub fn consume_quota(&self, bytes: u64) -> bool {
+        let mut inner = self.machine.inner();
+
+        let remaining = &mut inner.artifact_quota_remaining[self.quota_index];
+
+        if *remaining > bytes {
+            *remaining -= bytes;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn replace_path_patterns(&self, path: &str) -> String {
+        path.replace("<RUNNER_NAME>", &self.machine.runner_name)
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.replace_path_patterns(&self.config.path).into()
+    }
+
+    pub fn url(&self) -> String {
+        let mut url = self.replace_path_patterns(&self.config.url);
+
+        if !url.ends_with('/') {
+            url.push('/')
+        }
+
+        url
     }
 }
