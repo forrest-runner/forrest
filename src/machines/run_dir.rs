@@ -9,7 +9,7 @@ use crate::config::{ConfigFile, MachineConfig, SeedBasePolicy};
 
 use super::config_fs::ConfigFs;
 use super::manager::Machines;
-use super::triplet::Triplet;
+use super::triplets::Triplet;
 
 const JOB_CONFIG_IMAGE_SIZE: u64 = 1024 * 1024;
 const JOB_CONFIG_IMAGE_LABEL: &str = "JOBDATA";

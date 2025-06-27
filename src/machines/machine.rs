@@ -12,7 +12,7 @@ use tokio::{process::Command, task::AbortHandle};
 
 use super::manager::{Machines, Rescheduler};
 use super::run_dir::RunDir;
-use super::triplet::Triplet;
+use super::triplets::Triplet;
 use crate::auth::Auth;
 use crate::config::{ConfigFile, MachineConfig};
 
