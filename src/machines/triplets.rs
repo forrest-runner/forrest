@@ -68,6 +68,10 @@ impl OwnerRepoLabels {
 
     pub fn machine_name(&self) -> anyhow::Result<&str> {
         match self.labels.as_slice() {
+            [single] => match single.strip_prefix("self-hosted/forrest/") {
+                Some(machine_name) => Ok(machine_name),
+                None => bail!("Single label does not match shorthand format"),
+            },
             [self_hosted, forrest, machine_name] => {
                 if self_hosted != "self-hosted" {
                     bail!("First of three labels is not \"self-hosted\"");
@@ -113,6 +117,9 @@ impl std::fmt::Display for OwnerRepoLabels {
         // Normal runs-on format:
         //   runs-on: [self-hosted, forrest, machine]
         //   "owner repo [self-hosted, forrest, machine]"
+        // Compact runs-on format:
+        //   runs-on: self-hosted/forrest/machine
+        //   "owner repo [self-hosted/forrest/machine]"
 
         write!(f, "{} {} [", self.owner, self.repository)?;
 
