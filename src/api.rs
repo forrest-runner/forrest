@@ -76,7 +76,7 @@ async fn api_handler(
         .next()
         .unwrap_or("");
 
-    trace!("API request for: {}", first_path_component);
+    trace!("API request for: {first_path_component}");
 
     match first_path_component {
         "webhook" => handlers.webhook.handle(request).await,
