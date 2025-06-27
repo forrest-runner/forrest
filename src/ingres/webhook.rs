@@ -211,15 +211,15 @@ impl WebhookHandler {
         // requests on their behalf later.
         self.auth.update_user(oar.owner(), installation_id);
 
-        if let Some(orm) = oar.into_orm_via_labels(&workflow_job.labels) {
-            self.job_manager.status_feedback(
-                &orm,
-                workflow_job.id,
-                workflow_job.run_id,
-                workflow_job.status,
-                workflow_job.runner_name.as_deref(),
-            );
-        }
+        let orl = oar.into_orl(workflow_job.labels);
+
+        self.job_manager.status_feedback(
+            &orl,
+            workflow_job.id,
+            workflow_job.run_id,
+            workflow_job.status,
+            workflow_job.runner_name.as_deref(),
+        );
 
         Ok(Response::builder()
             .status(StatusCode::NO_CONTENT)

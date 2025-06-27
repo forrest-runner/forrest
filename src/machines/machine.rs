@@ -12,7 +12,7 @@ use tokio::{process::Command, task::AbortHandle};
 
 use super::manager::{Machines, Rescheduler};
 use super::run_dir::RunDir;
-use super::triplets::OwnerRepoMachine;
+use super::triplets::OwnerRepoLabels;
 use crate::auth::Auth;
 use crate::config::{ConfigFile, MachineConfig};
 
@@ -85,7 +85,7 @@ pub struct Machine {
     rescheduler: Rescheduler,
     runner_name: String,
     run_token: String,
-    orm: OwnerRepoMachine,
+    orl: OwnerRepoLabels,
 }
 
 pub struct Artifact<'a> {
@@ -155,27 +155,35 @@ impl Machine {
     /// * `cfg` - The version of the config file this machine will use throughout
     ///   its lifetime.
     /// * `auth` - The authentication cache we use to register the jit runner with
-    ///   GitHub. This has to know about the user in `orm` already.
+    ///   GitHub. This has to know about the user in `orl` already.
     /// * `rescheduler` - Used to trigger a reschedule from the `machines::Manager`
     ///   once the machine exits and its resources are available to other machines.
-    /// * `orm` - The (owner, repository, machine name) orm that requested
-    ///   this machine.
+    /// * `orl` - The owner, repository, labels combination that requested this
+    ///   machine.
     pub(super) fn new(
         cfg: Arc<ConfigFile>,
         auth: Arc<Auth>,
         rescheduler: Rescheduler,
-        orm: OwnerRepoMachine,
+        orl: OwnerRepoLabels,
     ) -> Option<Arc<Self>> {
+        let machine_name = match orl.machine_name() {
+            Ok(machine_name) => machine_name,
+            Err(e) => {
+                debug!("Got request with unsupported label combination: {e}");
+                return None;
+            }
+        };
+
         let machine_config = cfg
             .repositories
-            .get(orm.owner())
-            .and_then(|repos| repos.get(orm.repository()))
-            .and_then(|repo| repo.machines.get(orm.machine_name()));
+            .get(orl.owner())
+            .and_then(|repos| repos.get(orl.repository()))
+            .and_then(|repo| repo.machines.get(machine_name));
 
         let machine_config = match machine_config {
             Some(mc) => mc,
             None => {
-                error!("Got request for unknown machine orm: {orm}");
+                error!("Got request for unknown machine orl: {orl}");
                 return None;
             }
         };
@@ -185,7 +193,7 @@ impl Machine {
 
             let mut name = b"forrest-".to_vec();
 
-            name.extend(orm.machine_name().as_bytes());
+            name.extend(machine_name.as_bytes());
             name.push(b'-');
             name.extend(rng().sample_iter(&Alphanumeric).take(16));
 
@@ -214,7 +222,7 @@ impl Machine {
         });
 
         Some(Arc::new(Self {
-            orm,
+            orl,
             rescheduler,
             runner_name,
             run_token,
@@ -249,8 +257,8 @@ impl Machine {
         &self.cfg
     }
 
-    pub(super) fn orm(&self) -> &OwnerRepoMachine {
-        &self.orm
+    pub(super) fn orl(&self) -> &OwnerRepoLabels {
+        &self.orl
     }
 
     pub(super) fn run_token(&self) -> &str {
@@ -259,13 +267,14 @@ impl Machine {
 
     pub(super) fn machine_config(&self) -> &MachineConfig {
         let cfg = self.cfg();
-        let orm = self.orm();
+        let orl = self.orl();
+        let machine_name = orl.machine_name().unwrap();
 
         let machine_config = cfg
             .repositories
-            .get(orm.owner())
-            .and_then(|repos| repos.get(orm.repository()))
-            .and_then(|repo| repo.machines.get(orm.machine_name()));
+            .get(orl.owner())
+            .and_then(|repos| repos.get(orl.repository()))
+            .and_then(|repo| repo.machines.get(machine_name));
 
         machine_config.unwrap()
     }
@@ -337,25 +346,19 @@ impl Machine {
         let machine = self.clone();
 
         let task = tokio::spawn(async move {
-            let orm = machine.orm();
-            let installation_octocrab = machine.auth.user(machine.orm.owner()).unwrap();
-
-            let labels = vec![
-                "self-hosted".to_owned(),
-                "forrest".to_owned(),
-                orm.machine_name().into(),
-            ];
+            let orl = machine.orl();
+            let installation_octocrab = machine.auth.user(machine.orl.owner()).unwrap();
 
             let runner_group = RunnerGroupId(1);
 
             let jit_config = installation_octocrab
                 .actions()
                 .create_repo_jit_runner_config(
-                    orm.owner(),
-                    orm.repository(),
+                    orl.owner(),
+                    orl.repository(),
                     &machine.runner_name,
                     runner_group,
-                    labels,
+                    orl.labels(),
                 )
                 .send()
                 .await;
@@ -366,14 +369,14 @@ impl Machine {
                 Ok(jc) => {
                     debug!(
                         "Registered jit runner for {}: {} {}",
-                        machine.orm, machine.runner_name, jc.runner.id
+                        machine.orl, machine.runner_name, jc.runner.id
                     );
 
                     inner.status = Status::Registered;
                     inner.jit_config = Some(jc);
                 }
                 Err(err) => {
-                    error!("Failed to register jit runner for {}: {err}", machine.orm);
+                    error!("Failed to register jit runner for {}: {err}", machine.orl);
 
                     inner.status = Status::Stopped;
                 }
@@ -497,21 +500,21 @@ impl Machine {
             let machine = self.clone();
 
             tokio::spawn(async move {
-                let octocrab = machine.auth.user(machine.orm.owner()).unwrap();
+                let octocrab = machine.auth.user(machine.orl.owner()).unwrap();
 
                 let res = octocrab
                     .actions()
-                    .delete_repo_runner(machine.orm.owner(), machine.orm.repository(), runner_id)
+                    .delete_repo_runner(machine.orl.owner(), machine.orl.repository(), runner_id)
                     .await;
 
                 machine.inner().jit_config = None;
 
                 match res {
-                    Ok(()) => info!("De-registered {} on {}", machine.runner_name, machine.orm),
+                    Ok(()) => info!("De-registered {} on {}", machine.runner_name, machine.orl),
                     Err(err) => {
                         warn!(
                             "Failed to de-register {} from {}: {err}",
-                            machine.runner_name, machine.orm
+                            machine.runner_name, machine.orl
                         )
                     }
                 }
@@ -554,8 +557,11 @@ impl Machine {
                     }
                 };
 
+                let orl = self.orl();
+                let orm = orl.clone().into_owner_repo_machine().unwrap();
+
                 let run_dir = RunDir::new(
-                    self.orm(),
+                    &orm,
                     self.cfg(),
                     self.machine_config(),
                     self.runner_name(),
@@ -635,7 +641,7 @@ impl Machine {
 
 impl std::fmt::Display for Machine {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {}", self.orm, self.runner_name)
+        write!(f, "{} {}", self.orl, self.runner_name)
     }
 }
 

@@ -49,6 +49,16 @@ fn pick_newer<'p>(a: &'p Path, b: &'p Path) -> std::io::Result<&'p Path> {
     }
 }
 
+fn machines_contains_orm(machines: &Machines, orm: &OwnerRepoMachine) -> bool {
+    machines.keys().all(|machine| {
+        machine.owner() == orm.owner()
+            && machine.repository() == orm.repository()
+            && machine
+                .machine_name()
+                .is_ok_and(|m| m == orm.machine_name())
+    })
+}
+
 impl RunDir {
     /// Create a directory for a machine run and populate it to match our qemu arguments
     ///
@@ -76,7 +86,7 @@ impl RunDir {
         let machine_image = orm.machine_image_path(base_dir);
 
         let base_image = match &machine_config.base_machine {
-            Some(base_orm) if machines.contains_key(base_orm) => {
+            Some(base_orm) if machines_contains_orm(machines, base_orm) => {
                 info!("Delaying the startup of {orm} because its base {base_orm} is currently running");
                 return Ok(None);
             }

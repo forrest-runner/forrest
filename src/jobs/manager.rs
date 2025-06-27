@@ -7,7 +7,7 @@ use octocrab::models::{JobId, RunId};
 use tokio::task::JoinHandle;
 
 use super::job::Job;
-use crate::machines::{Manager as MachineManager, OwnerAndRepo, OwnerRepoMachine};
+use crate::machines::{Manager as MachineManager, OwnerAndRepo, OwnerRepoLabels};
 
 // The `status_feedback()` method is called for each webhook event
 // and each job that comes up in a poll.
@@ -48,7 +48,7 @@ impl Manager {
 
         for job in self.jobs.lock().unwrap().iter() {
             if job.is_interesting() {
-                let oar = job.orm().clone().into_owner_and_repo();
+                let oar = job.orl().clone().into_owner_and_repo();
                 let run_id = job.run_id();
 
                 res.entry(oar).or_default().insert(run_id);
@@ -63,7 +63,7 @@ impl Manager {
     /// This is called by the poller and webhook ingres tasks.
     pub fn status_feedback(
         &self,
-        orm: &OwnerRepoMachine,
+        orl: &OwnerRepoLabels,
         job_id: JobId,
         run_id: RunId,
         status: Status,
@@ -74,27 +74,27 @@ impl Manager {
             // even though that information may not have trickled through yet.
             // Make sure the runner does not become eligible for termination.
             self.machine_manager
-                .status_feedback(orm, runner_name, Some(true), true);
+                .status_feedback(orl, runner_name, Some(true), true);
         }
 
         if let (Status::Completed | Status::Failed, Some(runner_name)) = (&status, runner_name) {
             // We know that the runner this job is running on is no longer busy.
             // We do however not know if it is still online.
             self.machine_manager
-                .status_feedback(orm, runner_name, None, false);
+                .status_feedback(orl, runner_name, None, false);
         }
 
         let mut jobs = self.jobs.lock().unwrap();
 
         let index = jobs
             .iter()
-            .position(|job| job.orm() == orm && job.job_id() == job_id);
+            .position(|job| job.orl() == orl && job.job_id() == job_id);
 
         let has_changed = match (&status, index) {
             // Track the status of this job by either adding it to our index
             // or updating its state if we already know it.
             (Status::Pending | Status::Queued | Status::InProgress, None) => {
-                jobs.push(Job::new(orm.clone(), job_id, run_id, status));
+                jobs.push(Job::new(orl.clone(), job_id, run_id, status));
                 true
             }
             (Status::Pending | Status::Queued | Status::InProgress, Some(index)) => {
@@ -146,10 +146,10 @@ impl Manager {
     fn update_demand(&self) {
         let jobs = self.jobs.lock().unwrap();
 
-        let orms = jobs
+        let orls = jobs
             .iter()
-            .filter_map(|job| job.is_queued().then_some(job.orm()));
+            .filter_map(|job| job.is_queued().then_some(job.orl()));
 
-        self.machine_manager.update_demand(orms);
+        self.machine_manager.update_demand(orls);
     }
 }
