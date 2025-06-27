@@ -11,9 +11,9 @@ use super::config_fs::ConfigFs;
 use super::machine::Machine;
 use super::manager::Machines;
 
-const JOB_CONFIG_IMAGE_SIZE: u64 = 1_000_000;
+const JOB_CONFIG_IMAGE_SIZE: u64 = 1024 * 1024;
 const JOB_CONFIG_IMAGE_LABEL: &str = "JOBDATA";
-const CLOUD_INIT_IMAGE_SIZE: u64 = 1_000_000;
+const CLOUD_INIT_IMAGE_SIZE: u64 = 1024 * 1024;
 const CLOUD_INIT_IMAGE_LABEL: &str = "CIDATA";
 
 pub(super) struct RunDir {
