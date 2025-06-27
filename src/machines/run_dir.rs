@@ -137,6 +137,7 @@ impl RunDir {
                 ("REPO_NAME", triplet.repository()),
                 ("MACHINE_NAME", triplet.machine_name()),
                 ("JITCONFIG", encoded_jit_config.as_str()),
+                ("RUN_TOKEN", machine.run_token()),
             ];
 
             let parameters = template

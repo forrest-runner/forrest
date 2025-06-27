@@ -15,7 +15,7 @@ mod size_in_bytes;
 
 pub use github::GitHubConfig;
 pub use host::HostConfig;
-pub use machine::{MachineConfig, Repository, SeedBasePolicy};
+pub use machine::{Artifact, MachineConfig, Repository, SeedBasePolicy};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
