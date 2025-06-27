@@ -564,7 +564,15 @@ impl Machine {
                     }
                 };
 
-                let run_dir = RunDir::new(self, machines, encoded_jit_config);
+                let run_dir = RunDir::new(
+                    self.triplet(),
+                    self.cfg(),
+                    self.machine_config(),
+                    self.runner_name(),
+                    self.run_token(),
+                    machines,
+                    encoded_jit_config,
+                );
 
                 match run_dir {
                     Ok(run_dir) => inner.run_dir = run_dir,

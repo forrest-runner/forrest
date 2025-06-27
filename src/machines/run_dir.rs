@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use log::{debug, error, info, warn};
 use reflink_copy::reflink;
 
-use crate::config::SeedBasePolicy;
+use crate::config::{ConfigFile, MachineConfig, SeedBasePolicy};
 
 use super::config_fs::ConfigFs;
-use super::machine::Machine;
 use super::manager::Machines;
+use super::triplet::Triplet;
 
 const JOB_CONFIG_IMAGE_SIZE: u64 = 1024 * 1024;
 const JOB_CONFIG_IMAGE_LABEL: &str = "JOBDATA";
@@ -63,28 +63,28 @@ impl RunDir {
     ///
     /// Returns Ok(None) if the image file we want is not present yet.
     pub(super) fn new(
-        machine: &Machine,
+        triplet: &Triplet,
+        cfg: &ConfigFile,
+        machine_config: &MachineConfig,
+        runner_name: &str,
+        run_token: &str,
         machines: &Machines,
         encoded_jit_config: String,
     ) -> std::io::Result<Option<Self>> {
-        let triplet = machine.triplet();
-        let cfg = machine.cfg();
-        let machine_config = machine.machine_config();
-
         let base_dir = &cfg.host.base_dir;
 
         let machine_image = triplet.machine_image_path(base_dir);
 
         let base_image = match &machine_config.base_machine {
             Some(base_triplet) if machines.contains_key(base_triplet) => {
-                info!("Delaying the startup of {machine} because its base {base_triplet} is currently running");
+                info!("Delaying the startup of {triplet} because its base {base_triplet} is currently running");
                 return Ok(None);
             }
             Some(base_triplet) => base_triplet.machine_image_path(base_dir),
             None => match &machine_config.base_image {
                 Some(base_image) => base_image.clone(),
                 None => {
-                    warn!("Neither `base_machine` nor `base_image` configured for {machine}.");
+                    warn!("Neither `base_machine` nor `base_image` configured for {triplet}.");
                     warn!("Falling back to machine image");
                     machine_image.clone()
                 }
@@ -99,7 +99,7 @@ impl RunDir {
 
         if !image.try_exists()? {
             info!(
-                "Delaying the startup of {machine} because the image {} does not exist (yet)",
+                "Delaying the startup of {triplet} because the image {} does not exist (yet)",
                 image.display()
             );
             return Ok(None);
@@ -111,7 +111,7 @@ impl RunDir {
             .and_then(|repos| repos.get(triplet.repository()))
             .and_then(|repo| repo.persistence_token.clone());
 
-        let run_dir = triplet.run_dir_path(&cfg.host.base_dir, machine.runner_name());
+        let run_dir = triplet.run_dir_path(&cfg.host.base_dir, runner_name);
 
         create_dir_all(&run_dir)?;
 
@@ -137,7 +137,7 @@ impl RunDir {
                 ("REPO_NAME", triplet.repository()),
                 ("MACHINE_NAME", triplet.machine_name()),
                 ("JITCONFIG", encoded_jit_config.as_str()),
-                ("RUN_TOKEN", machine.run_token()),
+                ("RUN_TOKEN", run_token),
             ];
 
             let parameters = template
