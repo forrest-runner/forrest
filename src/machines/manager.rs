@@ -9,7 +9,7 @@ use std::{
 use log::{debug, error, info, warn};
 
 use super::machine::Machine;
-use super::{OwnerAndRepo, Triplet};
+use super::{OwnerAndRepo, OwnerRepoMachine};
 use crate::{auth::Auth, config::Config};
 
 // Machines should go from being booted to being registered with GitHub
@@ -18,7 +18,7 @@ use crate::{auth::Auth, config::Config};
 // and unpack the runner binary first.
 const START_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
-pub type Machines = HashMap<Triplet, Vec<Arc<Machine>>>;
+pub type Machines = HashMap<OwnerRepoMachine, Vec<Arc<Machine>>>;
 
 #[derive(Clone)]
 pub struct Manager {
@@ -62,13 +62,13 @@ impl Manager {
         let mut machines = self.machines.lock().unwrap();
 
         // Use the opportunity to clean up the machines.
-        // Go through each entry in the HashMap<Triplet, Vec<Arc<Machine>>>,
+        // Go through each entry in the HashMap<OwnerRepoMachine, Vec<Arc<Machine>>>,
         // remove all Machines that have already stopped from the Vec
-        // and then all Triplets from the HashMap that have an empty Vec.
-        machines.retain(|_triplet, triplet_machines| {
-            triplet_machines.retain(|machine| !machine.status().is_stopped());
+        // and then all OwnerRepoMachines from the HashMap that have an empty Vec.
+        machines.retain(|_orm, orm_machines| {
+            orm_machines.retain(|machine| !machine.status().is_stopped());
 
-            !triplet_machines.is_empty()
+            !orm_machines.is_empty()
         });
 
         machines
@@ -84,15 +84,15 @@ impl Manager {
 
     pub fn status_feedback(
         &self,
-        triplet: &Triplet,
+        orm: &OwnerRepoMachine,
         runner_name: &str,
         online: Option<bool>,
         busy: bool,
     ) -> bool {
         let machines = self.machines();
 
-        let machine = machines.get(triplet).and_then(|triplet_machines| {
-            triplet_machines
+        let machine = machines.get(orm).and_then(|orm_machines| {
+            orm_machines
                 .iter()
                 .find(|machine| machine.runner_name() == runner_name)
         });
@@ -106,24 +106,24 @@ impl Manager {
         }
     }
 
-    pub fn update_demand<'a>(&self, requested: impl Iterator<Item = &'a Triplet>) {
-        let mut demand: HashMap<Triplet, u64> = HashMap::new();
+    pub fn update_demand<'a>(&self, requested: impl Iterator<Item = &'a OwnerRepoMachine>) {
+        let mut demand: HashMap<OwnerRepoMachine, u64> = HashMap::new();
 
-        for triplet in requested {
-            let count = demand.entry(triplet.clone()).or_insert(0);
+        for orm in requested {
+            let count = demand.entry(orm.clone()).or_insert(0);
 
             *count += 1;
         }
 
         debug!("Updating the machine demand with:");
 
-        for (triplet, count) in demand.iter() {
-            debug!("  - {triplet}: {count}");
+        for (orm, count) in demand.iter() {
+            debug!("  - {orm}: {count}");
         }
 
         let mut machines = self.machines();
 
-        for (triplet, triplet_machines) in machines.iter_mut() {
+        for (orm, orm_machines) in machines.iter_mut() {
             // Remove machines where the supply surpasses the demand
 
             // We will traverse the list of machines from end to start and once
@@ -132,9 +132,9 @@ impl Manager {
             // We'd rather kill machines that have not started yet / are not
             // already waiting for jobs, so we place those at the end of the
             // list.
-            triplet_machines.sort_unstable_by_key(|m| Machine::cost_to_kill(m));
+            orm_machines.sort_unstable_by_key(|m| Machine::cost_to_kill(m));
 
-            for machine in triplet_machines.iter().rev() {
+            for machine in orm_machines.iter().rev() {
                 // Machines that are already servicing jobs do not count into the
                 // supply/demand calculation.
                 if !machine.status().is_available() {
@@ -143,7 +143,7 @@ impl Manager {
 
                 // Reduce the demand for this machine type by one.
                 // If the demand is already zero, then kill the machine.
-                match demand.get_mut(triplet) {
+                match demand.get_mut(orm) {
                     Some(0) | None => machine.kill(),
                     Some(count) => *count -= 1,
                 }
@@ -153,14 +153,14 @@ impl Manager {
         // Add machines where the demand surpasses the supply
         let cfg = self.config.get();
 
-        for (triplet, count) in demand {
+        for (orm, count) in demand {
             for _ in 0..count {
                 let cfg = cfg.clone();
                 let auth = self.auth.clone();
                 let rescheduler = self.rescheduler();
 
-                if let Some(m) = Machine::new(cfg, auth, rescheduler, triplet.clone()) {
-                    machines.entry(triplet.clone()).or_default().push(m);
+                if let Some(m) = Machine::new(cfg, auth, rescheduler, orm.clone()) {
+                    machines.entry(orm.clone()).or_default().push(m);
                 }
             }
         }
@@ -178,7 +178,7 @@ impl Manager {
             let ram_total = cfg.host.ram.bytes();
             let ram_consumed = machines
                 .values()
-                .flat_map(|triplet_machines| triplet_machines.iter())
+                .flat_map(|orm_machines| orm_machines.iter())
                 .map(|m| Machine::ram_consumed(m))
                 .sum();
             let ram_available = ram_total.saturating_sub(ram_consumed);
@@ -192,7 +192,7 @@ impl Manager {
         // because they are harder to place if we start all smaller jobs first.
         let mut machines_flat: Vec<_> = machines
             .values()
-            .flat_map(|triplet_machines| triplet_machines.iter())
+            .flat_map(|orm_machines| orm_machines.iter())
             .collect();
 
         machines_flat.sort_unstable_by_key(|m| Machine::ram_required(m));
@@ -260,8 +260,8 @@ impl Manager {
                         let labels: Vec<_> =
                             runner.labels.into_iter().map(|label| label.name).collect();
 
-                        let triplet = match oar.clone().into_triplet_via_labels(&labels) {
-                            Some(triplet) => triplet,
+                        let orm = match oar.clone().into_orm_via_labels(&labels) {
+                            Some(orm) => orm,
                             None => continue,
                         };
 
@@ -283,8 +283,7 @@ impl Manager {
 
                         // Try to update the runner's online/busy status.
                         // Returns whether we know this runner or not.
-                        let found =
-                            self.status_feedback(&triplet, &runner_name, Some(online), busy);
+                        let found = self.status_feedback(&orm, &runner_name, Some(online), busy);
 
                         // The runners name and labels sound like we created them,
                         // but we do not know about it.
@@ -313,8 +312,8 @@ impl Manager {
 
         let base_dir_path = Path::new(&cfg.host.base_dir);
 
-        for (triplet, triplet_machines) in machines.iter_mut() {
-            for machine in triplet_machines {
+        for (orm, orm_machines) in machines.iter_mut() {
+            for machine in orm_machines {
                 let runner_name = machine.runner_name();
 
                 let start_timeout_elapsed = machine
@@ -323,9 +322,9 @@ impl Manager {
                     .unwrap_or(false);
 
                 if start_timeout_elapsed {
-                    error!("Runner {runner_name} on {triplet} failed to come up in time");
+                    error!("Runner {runner_name} on {orm} failed to come up in time");
 
-                    let machine_image_path = triplet.machine_image_path(base_dir_path);
+                    let machine_image_path = orm.machine_image_path(base_dir_path);
 
                     machine.kill();
 

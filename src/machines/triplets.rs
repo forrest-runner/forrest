@@ -10,7 +10,7 @@ pub struct OwnerAndRepo {
 }
 
 #[derive(PartialEq, Eq, Clone, Hash)]
-pub struct Triplet {
+pub struct OwnerRepoMachine {
     owner: String,
     repository: String,
     machine_name: String,
@@ -24,15 +24,15 @@ impl OwnerAndRepo {
         }
     }
 
-    pub fn into_triplet(self, machine_name: impl ToString) -> Triplet {
-        Triplet {
+    pub fn into_orm(self, machine_name: impl ToString) -> OwnerRepoMachine {
+        OwnerRepoMachine {
             owner: self.owner,
             repository: self.repository,
             machine_name: machine_name.to_string(),
         }
     }
 
-    pub fn into_triplet_via_labels(self, labels: &[String]) -> Option<Triplet> {
+    pub fn into_orm_via_labels(self, labels: &[String]) -> Option<OwnerRepoMachine> {
         if labels.len() != 3 {
             debug!("Ignoring job with {} != 3 labels on {self}", labels.len());
             return None;
@@ -52,7 +52,7 @@ impl OwnerAndRepo {
             return None;
         }
 
-        Some(self.into_triplet(machine_name))
+        Some(self.into_orm(machine_name))
     }
 
     pub fn owner(&self) -> &str {
@@ -70,7 +70,7 @@ impl std::fmt::Display for OwnerAndRepo {
     }
 }
 
-impl Triplet {
+impl OwnerRepoMachine {
     pub fn new(
         owner: impl ToString,
         repository: impl ToString,
@@ -120,7 +120,7 @@ impl Triplet {
     }
 }
 
-impl std::fmt::Display for Triplet {
+impl std::fmt::Display for OwnerRepoMachine {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -130,13 +130,13 @@ impl std::fmt::Display for Triplet {
     }
 }
 
-impl std::fmt::Debug for Triplet {
+impl std::fmt::Debug for OwnerRepoMachine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self, f)
     }
 }
 
-impl<'de> Deserialize<'de> for Triplet {
+impl<'de> Deserialize<'de> for OwnerRepoMachine {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

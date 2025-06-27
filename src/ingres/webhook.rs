@@ -211,9 +211,9 @@ impl WebhookHandler {
         // requests on their behalf later.
         self.auth.update_user(oar.owner(), installation_id);
 
-        if let Some(triplet) = oar.into_triplet_via_labels(&workflow_job.labels) {
+        if let Some(orm) = oar.into_orm_via_labels(&workflow_job.labels) {
             self.job_manager.status_feedback(
-                &triplet,
+                &orm,
                 workflow_job.id,
                 workflow_job.run_id,
                 workflow_job.status,

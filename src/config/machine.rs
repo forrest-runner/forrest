@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use super::size_in_bytes::SizeInBytes;
-use crate::machines::Triplet;
+use crate::machines::OwnerRepoMachine;
 
 #[derive(Deserialize)]
 pub struct SetupTemplate {
@@ -55,7 +55,7 @@ impl Default for SeedBasePolicy {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MachineConfig {
-    pub base_machine: Option<Triplet>,
+    pub base_machine: Option<OwnerRepoMachine>,
     pub base_image: Option<PathBuf>,
     pub setup_template: SetupTemplate,
 

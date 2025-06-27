@@ -98,8 +98,8 @@ impl Poller {
             }
 
             for job in jobs.items {
-                let triplet = match oar.clone().into_triplet_via_labels(&job.labels) {
-                    Some(triplet) => triplet,
+                let orm = match oar.clone().into_orm_via_labels(&job.labels) {
+                    Some(orm) => orm,
                     None => continue,
                 };
 
@@ -108,7 +108,7 @@ impl Poller {
                 // The job manager will then forward the demand for machines to the
                 // machine manager.
                 self.job_manager.status_feedback(
-                    &triplet,
+                    &orm,
                     job.id,
                     run_id,
                     job.status,

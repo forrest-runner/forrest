@@ -6,4 +6,4 @@ mod triplets;
 
 pub use machine::Artifact;
 pub use manager::Manager;
-pub use triplets::{OwnerAndRepo, Triplet};
+pub use triplets::{OwnerAndRepo, OwnerRepoMachine};
