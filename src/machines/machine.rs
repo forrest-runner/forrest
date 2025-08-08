@@ -224,7 +224,7 @@ impl Machine {
         }))
     }
 
-    fn inner(&self) -> std::sync::MutexGuard<Inner> {
+    fn inner(&self) -> std::sync::MutexGuard<'_, Inner> {
         self.inner.lock().unwrap()
     }
 
@@ -270,7 +270,7 @@ impl Machine {
         machine_config.unwrap()
     }
 
-    pub fn artifact(&self, name: &str, extra_token: &str) -> Option<Artifact> {
+    pub fn artifact(&self, name: &str, extra_token: &str) -> Option<Artifact<'_>> {
         let machine_config = self.machine_config();
 
         for (quota_index, config) in machine_config.artifacts.iter().enumerate() {

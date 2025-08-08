@@ -58,7 +58,7 @@ impl Manager {
     /// The lock does however not include the job states,
     /// so machines may still enter the stopped state while this
     /// lock is held.
-    fn machines(&self) -> std::sync::MutexGuard<Machines> {
+    fn machines(&self) -> std::sync::MutexGuard<'_, Machines> {
         let mut machines = self.machines.lock().unwrap();
 
         // Use the opportunity to clean up the machines.
