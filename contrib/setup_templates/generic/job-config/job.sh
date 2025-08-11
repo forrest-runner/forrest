@@ -10,6 +10,13 @@ URL="https://github.com/actions/runner/releases/download/v${VERSION}/${FILE}"
 
 if ! test -e "${FILE}"
 then
+    if test -x /usr/bin/apt-get
+    then
+        sudo DEBIAN_FRONTEND=noninteractive DPKG_FORCE=confnew apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive DPKG_FORCE=confnew apt-get \
+            --assume-yes install icu-devtools
+    fi
+
     curl --location --output "${FILE}" "${URL}"
     echo "${HASH} ${FILE}" > "${FILE}.hash"
     sha256sum --check "${FILE}.hash"
