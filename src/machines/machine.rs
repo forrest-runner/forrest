@@ -34,6 +34,7 @@ const QEMU_ARGS: &[&[&str]] = &[
     &["-netdev", "user,id=uplink,ipv4=on,ipv6=on,ipv6-net=::/0"],
     &["-object", "rng-random,filename=/dev/urandom,id=rng0"],
     &["-device", "virtio-rng-pci,rng=rng0,id=rng-device0"],
+    &["-device", "VGA,vgamem_mb=4"],
     &["-device", "isa-serial,chardev=bootlog"],
     &["-device", "isa-serial,chardev=telnet"],
     &["-chardev", "file,id=bootlog,path=log.txt"],
