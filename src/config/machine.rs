@@ -14,9 +14,10 @@ pub struct SetupTemplate {
     pub parameters: HashMap<String, String>,
 }
 
-#[derive(Deserialize, Clone, Copy)]
+#[derive(Default, Deserialize, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum SeedBasePolicy {
+    #[default]
     IfNewer,
     Always,
     Never,
@@ -44,12 +45,6 @@ pub struct Artifact {
     pub url: String,
     pub quota: SizeInBytes,
     pub token: Option<String>,
-}
-
-impl Default for SeedBasePolicy {
-    fn default() -> Self {
-        Self::IfNewer
-    }
 }
 
 #[derive(Deserialize)]
