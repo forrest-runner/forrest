@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use log::{debug, error, info, warn};
 use reflink_copy::reflink;
 
-use crate::config::SeedBasePolicy;
+use crate::config::{ConfigFile, MachineConfig, SeedBasePolicy};
 
 use super::config_fs::ConfigFs;
-use super::machine::Machine;
 use super::manager::Machines;
+use super::triplets::OwnerRepoMachine;
 
 const JOB_CONFIG_IMAGE_SIZE: u64 = 1024 * 1024;
 const JOB_CONFIG_IMAGE_LABEL: &str = "JOBDATA";
@@ -49,6 +49,16 @@ fn pick_newer<'p>(a: &'p Path, b: &'p Path) -> std::io::Result<&'p Path> {
     }
 }
 
+fn machines_contains_orm(machines: &Machines, orm: &OwnerRepoMachine) -> bool {
+    machines.keys().all(|machine| {
+        machine.owner() == orm.owner()
+            && machine.repository() == orm.repository()
+            && machine
+                .machine_name()
+                .is_ok_and(|m| m == orm.machine_name())
+    })
+}
+
 impl RunDir {
     /// Create a directory for a machine run and populate it to match our qemu arguments
     ///
@@ -63,28 +73,28 @@ impl RunDir {
     ///
     /// Returns Ok(None) if the image file we want is not present yet.
     pub(super) fn new(
-        machine: &Machine,
+        orm: &OwnerRepoMachine,
+        cfg: &ConfigFile,
+        machine_config: &MachineConfig,
+        runner_name: &str,
+        run_token: &str,
         machines: &Machines,
         encoded_jit_config: String,
     ) -> std::io::Result<Option<Self>> {
-        let triplet = machine.triplet();
-        let cfg = machine.cfg();
-        let machine_config = machine.machine_config();
-
         let base_dir = &cfg.host.base_dir;
 
-        let machine_image = triplet.machine_image_path(base_dir);
+        let machine_image = orm.machine_image_path(base_dir);
 
         let base_image = match &machine_config.base_machine {
-            Some(base_triplet) if machines.contains_key(base_triplet) => {
-                info!("Delaying the startup of {machine} because its base {base_triplet} is currently running");
+            Some(base_orm) if machines_contains_orm(machines, base_orm) => {
+                info!("Delaying the startup of {orm} because its base {base_orm} is currently running");
                 return Ok(None);
             }
-            Some(base_triplet) => base_triplet.machine_image_path(base_dir),
+            Some(base_orm) => base_orm.machine_image_path(base_dir),
             None => match &machine_config.base_image {
                 Some(base_image) => base_image.clone(),
                 None => {
-                    warn!("Neither `base_machine` nor `base_image` configured for {machine}.");
+                    warn!("Neither `base_machine` nor `base_image` configured for {orm}.");
                     warn!("Falling back to machine image");
                     machine_image.clone()
                 }
@@ -99,7 +109,7 @@ impl RunDir {
 
         if !image.try_exists()? {
             info!(
-                "Delaying the startup of {machine} because the image {} does not exist (yet)",
+                "Delaying the startup of {orm} because the image {} does not exist (yet)",
                 image.display()
             );
             return Ok(None);
@@ -107,11 +117,11 @@ impl RunDir {
 
         let persistence_token = cfg
             .repositories
-            .get(triplet.owner())
-            .and_then(|repos| repos.get(triplet.repository()))
+            .get(orm.owner())
+            .and_then(|repos| repos.get(orm.repository()))
             .and_then(|repo| repo.persistence_token.clone());
 
-        let run_dir = triplet.run_dir_path(&cfg.host.base_dir, machine.runner_name());
+        let run_dir = orm.run_dir_path(&cfg.host.base_dir, runner_name);
 
         create_dir_all(&run_dir)?;
 
@@ -133,11 +143,11 @@ impl RunDir {
 
         let substitutions = {
             let mut sub = vec![
-                ("REPO_OWNER", triplet.owner()),
-                ("REPO_NAME", triplet.repository()),
-                ("MACHINE_NAME", triplet.machine_name()),
+                ("REPO_OWNER", orm.owner()),
+                ("REPO_NAME", orm.repository()),
+                ("MACHINE_NAME", orm.machine_name()),
                 ("JITCONFIG", encoded_jit_config.as_str()),
-                ("RUN_TOKEN", machine.run_token()),
+                ("RUN_TOKEN", run_token),
             ];
 
             let parameters = template

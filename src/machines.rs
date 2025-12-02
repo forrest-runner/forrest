@@ -2,8 +2,8 @@ mod config_fs;
 mod machine;
 mod manager;
 mod run_dir;
-mod triplet;
+mod triplets;
 
 pub use machine::Artifact;
 pub use manager::Manager;
-pub use triplet::{OwnerAndRepo, Triplet};
+pub use triplets::{OwnerAndRepo, OwnerRepoLabels, OwnerRepoMachine};
