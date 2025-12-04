@@ -9,5 +9,9 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      cargo-all:
+        patterns:
+          - "*"
     commit-message:
       prefix: "Cargo:"
