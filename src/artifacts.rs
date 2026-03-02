@@ -8,7 +8,7 @@ use hyper::body::Incoming;
 use hyper::{Method, Request, Response, StatusCode};
 use log::{debug, trace, warn};
 use rand::distr::Alphanumeric;
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use log::{debug, error, info, warn};
 use octocrab::models::RunnerGroupId;
 use octocrab::models::{actions::SelfHostedRunnerJitConfig, RunnerId};
-use rand::{distr::Alphanumeric, rng, Rng};
+use rand::{distr::Alphanumeric, rng, RngExt};
 use tokio::{process::Command, task::AbortHandle};
 
 use super::manager::{Machines, Rescheduler};
