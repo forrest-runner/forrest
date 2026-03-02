@@ -36,6 +36,19 @@ pub struct Config {
     inner: Arc<Mutex<Inner>>,
 }
 
+fn remove_dot_keys(mapping: &mut yaml_serde::Mapping) {
+    // Remove all keys from the config that start with a dot.
+    // This is similar to how e.g. gitlab CI handles reusable YAML snippets.
+    mapping.retain(|k, _| k.as_str().map(|k| !k.starts_with(".")).unwrap_or(true));
+
+    // Recursively walk through all mappings in the config and remove
+    // dot prefixed keys there as well.
+    mapping
+        .values_mut()
+        .filter_map(yaml_serde::Value::as_mapping_mut)
+        .for_each(remove_dot_keys);
+}
+
 impl ConfigFile {
     fn from_file(fd: &mut File) -> yaml_serde::Result<Arc<Self>> {
         // First we read the config file as generic yaml_serde Value.
@@ -43,7 +56,7 @@ impl ConfigFile {
 
         // Then we apply merges / overrides like these:
         //
-        // machine_snippets:
+        // .machines:
         //   small: &machine-small
         //     ram: 8G
         //     …
@@ -58,12 +71,15 @@ impl ConfigFile {
             // in `_snippets`.
             // This allows using keys like `machine_snippets` which do not
             // adhere to the syntax.
-
             cfg_mapping.retain(|k, _| {
                 k.as_str()
                     .map(|k| !k.ends_with("_snippets"))
                     .unwrap_or(true)
             });
+
+            // Recursively walk through all mappings in the config and remove
+            // dot prefixed keys.
+            remove_dot_keys(cfg_mapping);
         }
 
         // And then we convert to our config format.
