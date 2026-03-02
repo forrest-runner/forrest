@@ -17,7 +17,7 @@ pub use github::GitHubConfig;
 pub use host::HostConfig;
 pub use machine::{Artifact, MachineConfig, NetworkInterface, Repository, SeedBasePolicy};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigFile {
     pub github: GitHubConfig,
@@ -168,5 +168,122 @@ impl Config {
     /// old version.
     pub fn get(&self) -> Arc<ConfigFile> {
         self.inner.lock().unwrap().get()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigFile;
+
+    const CONFIG_NESTED: &[u8] = br#"
+        host:
+          base_dir: /srv/forrest
+          ram: 120G
+
+        github:
+          app_id: 1234
+          jwt_key_file: key.pem
+          polling_interval: 15m
+          webhook_secret: Some super secret text
+
+        .machines:
+          machine-small: &machine-small
+            setup_template:
+              path: /etc/forrest/templates/generic
+              parameters:
+                RUNNER_VERSION: "2.318.0"
+                RUNNER_HASH: "28ed88e4cedf0fc93201a901e392a70463dbd0213f2ce9d57a4ab495027f3e2f"
+            base_image: /srv/forrest/images/debian-12-generic-amd64.raw
+            cpus: 4
+            disk: 16G
+            ram: 4G
+          machine-medium: &machine-medium
+            << : *machine-small
+            cpus: 8
+            disk: 32G
+            ram: 8G
+
+        repositories:
+          hnez:
+            forrest-images:
+              persistence_token: <PERSISTENCE_TOKEN>
+              machines:
+                debian-base:
+                  << : *machine-small
+                  use_base: always
+                debian-yocto:
+                  << : *machine-small
+                  base_machine: hnez/forrest-images/debian-base
+                  use_base: always
+
+            forrest-test:
+              machines:
+                test-debian:
+                  << : *machine-medium
+                  base_machine: hnez/forrest-images/debian-base
+        "#;
+
+    const CONFIG_FLAT: &[u8] = br#"
+        host:
+          base_dir: /srv/forrest
+          ram: 120G
+
+        github:
+          app_id: 1234
+          jwt_key_file: key.pem
+          polling_interval: 15m
+          webhook_secret: Some super secret text
+
+        repositories:
+          hnez:
+            forrest-images:
+              persistence_token: <PERSISTENCE_TOKEN>
+              machines:
+                debian-base:
+                  setup_template:
+                    path: /etc/forrest/templates/generic
+                    parameters:
+                      RUNNER_VERSION: "2.318.0"
+                      RUNNER_HASH: "28ed88e4cedf0fc93201a901e392a70463dbd0213f2ce9d57a4ab495027f3e2f"
+                  base_image: /srv/forrest/images/debian-12-generic-amd64.raw
+                  cpus: 4
+                  disk: 16G
+                  ram: 4G
+                  use_base: always
+                debian-yocto:
+                  setup_template:
+                    path: /etc/forrest/templates/generic
+                    parameters:
+                      RUNNER_VERSION: "2.318.0"
+                      RUNNER_HASH: "28ed88e4cedf0fc93201a901e392a70463dbd0213f2ce9d57a4ab495027f3e2f"
+                  base_image: /srv/forrest/images/debian-12-generic-amd64.raw
+                  cpus: 4
+                  disk: 16G
+                  ram: 4G
+                  base_machine: hnez/forrest-images/debian-base
+                  use_base: always
+
+            forrest-test:
+              machines:
+                test-debian:
+                  setup_template:
+                    path: /etc/forrest/templates/generic
+                    parameters:
+                      RUNNER_VERSION: "2.318.0"
+                      RUNNER_HASH: "28ed88e4cedf0fc93201a901e392a70463dbd0213f2ce9d57a4ab495027f3e2f"
+                  base_image: /srv/forrest/images/debian-12-generic-amd64.raw
+                  cpus: 8
+                  disk: 32G
+                  ram: 8G
+                  base_machine: hnez/forrest-images/debian-base
+
+        "#;
+
+    #[test]
+    fn nested_snippets() {
+        let config_file_nested = ConfigFile::from_reader(CONFIG_NESTED).unwrap();
+        let config_file_flat = ConfigFile::from_reader(CONFIG_FLAT).unwrap();
+
+        assert_eq!(config_file_nested, config_file_flat);
     }
 }
