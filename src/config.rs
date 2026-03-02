@@ -57,9 +57,12 @@ fn remove_dot_keys(mapping: &mut yaml_serde::Mapping) {
 }
 
 impl ConfigFile {
-    fn from_file(fd: &mut File) -> yaml_serde::Result<Arc<Self>> {
+    fn from_reader<R>(reader: R) -> yaml_serde::Result<Arc<Self>>
+    where
+        R: std::io::Read,
+    {
         // First we read the config file as generic yaml_serde Value.
-        let mut cfg: yaml_serde::Value = yaml_serde::from_reader(fd)?;
+        let mut cfg: yaml_serde::Value = yaml_serde::from_reader(reader)?;
 
         // Then we apply merges / overrides like these:
         //
@@ -123,7 +126,7 @@ impl Inner {
 
     fn get(&mut self) -> Arc<ConfigFile> {
         if let Some((mut fd, last_modified)) = self.should_refresh() {
-            match ConfigFile::from_file(&mut fd) {
+            match ConfigFile::from_reader(&mut fd) {
                 Ok(cf) => {
                     self.config_file = cf;
                     self.last_modified = last_modified;
@@ -143,7 +146,7 @@ impl Config {
     pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let mut fd = File::open(&path)?;
 
-        let config_file = ConfigFile::from_file(&mut fd)?;
+        let config_file = ConfigFile::from_reader(&mut fd)?;
         let last_modified = fd.metadata()?.modified()?;
 
         let inner = Inner {
