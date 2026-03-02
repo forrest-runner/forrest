@@ -36,6 +36,13 @@ pub struct Config {
     inner: Arc<Mutex<Inner>>,
 }
 
+fn contains_merge(value: &yaml_serde::Value) -> bool {
+    value
+        .as_mapping()
+        .map(|mapping| mapping.contains_key("<<") || mapping.values().any(contains_merge))
+        .unwrap_or(false)
+}
+
 fn remove_dot_keys(mapping: &mut yaml_serde::Mapping) {
     // Remove all keys from the config that start with a dot.
     // This is similar to how e.g. gitlab CI handles reusable YAML snippets.
@@ -64,7 +71,11 @@ impl ConfigFile {
         //     << : *machine-small
         //     ram: 32G
         //
-        cfg.apply_merge()?;
+        // We may need to do this multiple times, because `apply_merge` does
+        // not resolve nested merges by itself.
+        while contains_merge(&cfg) {
+            cfg.apply_merge()?;
+        }
 
         if let Some(cfg_mapping) = cfg.as_mapping_mut() {
             // Remove all top level fields from the config who's name ends
