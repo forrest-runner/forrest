@@ -26,7 +26,7 @@ github:
   polling_interval: 15m
   webhook_secret: Some super secret text
 
-machine_snippets:
+.machines:
   cfg-template: &cfg-template
     setup_template:
       path: /etc/forrest/templates/generic
@@ -112,11 +112,11 @@ Polling is a backup in case we have missed webhook events and is not a replacene
 for the webhook.
 The default interval is 15 minutes and should not be reduced too far.
 
-# `*_snippets`
+# `.*`
 
 (Optional)
 
-All top level configuration fields that end in `_snippets` are ignored.
+All configuration fields that start with a dot are ignored.
 These can be used to create config snippets that can be reused in other
 config sections.
 
