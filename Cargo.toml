@@ -27,7 +27,7 @@ sha2 = "0.11"
 yaml_serde = "0.10"
 
 [dependencies.hyper]
-version = "1.8"
+version = "1.9"
 features = ["http1", "server"]
 
 [dependencies.hyper-util]
@@ -35,5 +35,5 @@ version = "0.1"
 features = ["tokio"]
 
 [dependencies.tokio]
-version = "1.49"
+version = "1.50"
 features = ["fs", "io-util", "macros", "process", "rt"]
