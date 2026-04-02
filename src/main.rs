@@ -61,7 +61,7 @@ async fn forrest() -> anyhow::Result<()> {
 
     // Notify systemd that we are ready to handle requests.
     // This allows us to use the `Type=notify` systemd service type.
-    if let Err(e) = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]) {
+    if let Err(e) = sd_notify::notify(&[sd_notify::NotifyState::Ready]) {
         log::info!("Failed to notify systemd about service startup: {e}");
     }
 
