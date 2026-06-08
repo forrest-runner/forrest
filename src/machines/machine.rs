@@ -14,7 +14,7 @@ use super::manager::{Machines, Rescheduler};
 use super::run_dir::RunDir;
 use super::triplet::Triplet;
 use crate::auth::Auth;
-use crate::config::{ConfigFile, MachineConfig};
+use crate::config::{ConfigFile, MachineConfig, NetworkInterface};
 
 // The arguments used to start the qemu process.
 //
@@ -428,6 +428,28 @@ impl Machine {
             ["-virtfs".into(), arg].into_iter()
         });
 
+        let mut nic_args = Vec::new();
+
+        for (idx, ni) in machine_config.network_interfaces.iter().enumerate() {
+            match ni {
+                NetworkInterface::Vde(vde) => {
+                    nic_args.push("-netdev".into());
+                    nic_args.push({
+                        let mut netdev_arg = OsString::new();
+                        write!(&mut netdev_arg, "vde,id=nic-{idx},sock=").unwrap();
+                        netdev_arg.push(vde.path.as_os_str());
+                        netdev_arg
+                    });
+                    nic_args.push("-device".into());
+                    nic_args.push({
+                        let mut device_arg = OsString::new();
+                        write!(&mut device_arg, "virtio-net-pci,netdev=nic-{idx}").unwrap();
+                        device_arg
+                    });
+                }
+            }
+        }
+
         // Spawn a software TPM emulation if a state file is present.
         // We do not monitor the status of this process or wait for the control
         // socket to be ready.
@@ -468,8 +490,9 @@ impl Machine {
                 .arg("-smp")
                 .arg(&smp)
                 .args(QEMU_ARGS.iter().flat_map(|arg_list| *arg_list))
-                .args(swtpm_args.iter().flat_map(|arg_list| *arg_list))
-                .args(virtfs_args);
+                .args(virtfs_args)
+                .args(nic_args)
+                .args(swtpm_args.iter().flat_map(|arg_list| *arg_list));
 
             qemu
         };

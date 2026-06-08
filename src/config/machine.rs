@@ -49,6 +49,20 @@ pub struct Artifact {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct NetworkInterfaceVde {
+    pub path: PathBuf,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[serde(deny_unknown_fields)]
+pub enum NetworkInterface {
+    #[serde(rename = "vde")]
+    Vde(NetworkInterfaceVde),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MachineConfig {
     pub base_machine: Option<Triplet>,
     pub base_image: Option<PathBuf>,
@@ -66,6 +80,9 @@ pub struct MachineConfig {
 
     #[serde(default)]
     pub artifacts: Vec<Artifact>,
+
+    #[serde(default)]
+    pub network_interfaces: Vec<NetworkInterface>,
 }
 
 #[derive(Deserialize)]
