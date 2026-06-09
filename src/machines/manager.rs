@@ -195,9 +195,9 @@ impl Manager {
             .flat_map(|triplet_machines| triplet_machines.iter())
             .collect();
 
-        machines_flat.sort_unstable_by_key(|m| Machine::ram_required(m));
+        machines_flat.sort_by_key(|m| u64::MAX - Machine::ram_required(m));
 
-        for machine in machines_flat.iter_mut().rev() {
+        for machine in machines_flat.iter_mut() {
             machine.reschedule(&mut ram_available, &machines);
         }
 
