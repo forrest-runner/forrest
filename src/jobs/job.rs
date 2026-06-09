@@ -1,27 +1,27 @@
 use octocrab::models::workflows::Status;
 use octocrab::models::{JobId, RunId};
 
-use crate::machines::Triplet;
+use crate::machines::OwnerRepoLabels;
 
 pub(super) struct Job {
-    triplet: Triplet,
+    orl: OwnerRepoLabels,
     job_id: JobId,
     run_id: RunId,
     status: Status,
 }
 
 impl Job {
-    pub(super) fn new(triplet: Triplet, job_id: JobId, run_id: RunId, status: Status) -> Self {
+    pub(super) fn new(orl: OwnerRepoLabels, job_id: JobId, run_id: RunId, status: Status) -> Self {
         Self {
-            triplet,
+            orl,
             job_id,
             run_id,
             status,
         }
     }
 
-    pub(super) fn triplet(&self) -> &Triplet {
-        &self.triplet
+    pub(super) fn orl(&self) -> &OwnerRepoLabels {
+        &self.orl
     }
 
     pub(super) fn job_id(&self) -> JobId {
