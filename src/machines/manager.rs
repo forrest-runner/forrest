@@ -188,13 +188,17 @@ impl Manager {
             ram_available
         };
 
-        // We want to prioritize scheduling jobs requiring a lot of RAM,
-        // because they are harder to place if we start all smaller jobs first.
         let mut machines_flat: Vec<_> = machines
             .values()
             .flat_map(|triplet_machines| triplet_machines.iter())
             .collect();
 
+        // First sort by request time (first in first out) ...
+        machines_flat.sort_by_key(|m| m.requested());
+
+        // ... then sort by required RAM size in descending order, while
+        // keeping the FIFO order intact for machines with the same RAM
+        // requirements.
         machines_flat.sort_by_key(|m| u64::MAX - Machine::ram_required(m));
 
         for machine in machines_flat.iter_mut() {

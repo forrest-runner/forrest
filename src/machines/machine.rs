@@ -87,6 +87,7 @@ pub struct Machine {
     runner_name: String,
     run_token: String,
     triplet: Triplet,
+    requested: Instant,
 }
 
 pub struct Artifact<'a> {
@@ -214,6 +215,8 @@ impl Machine {
             artifact_quota_remaining,
         });
 
+        let requested = Instant::now();
+
         Some(Arc::new(Self {
             triplet,
             rescheduler,
@@ -221,6 +224,7 @@ impl Machine {
             run_token,
             auth,
             cfg,
+            requested,
             inner,
         }))
     }
@@ -256,6 +260,10 @@ impl Machine {
 
     pub(super) fn run_token(&self) -> &str {
         &self.run_token
+    }
+
+    pub(super) fn requested(&self) -> Instant {
+        self.requested
     }
 
     pub(super) fn machine_config(&self) -> &MachineConfig {
