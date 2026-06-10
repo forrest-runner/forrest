@@ -10,6 +10,7 @@ use octocrab::models::{actions::SelfHostedRunnerJitConfig, RunnerId};
 use rand::{distr::Alphanumeric, rng, RngExt};
 use tokio::{process::Command, task::AbortHandle};
 
+use super::mac_pool::get_mac;
 use super::manager::{Machines, Rescheduler};
 use super::run_dir::RunDir;
 use super::triplet::Triplet;
@@ -428,11 +429,16 @@ impl Machine {
             ["-virtfs".into(), arg].into_iter()
         });
 
+        // We need to keep a reference to the MAC addresses used until the
+        // VM exits, as they will be reused once they are dropped.
+        let mut macs = Vec::new();
         let mut nic_args = Vec::new();
 
         for (idx, ni) in machine_config.network_interfaces.iter().enumerate() {
             match ni {
                 NetworkInterface::Vde(vde) => {
+                    let mac = get_mac();
+
                     nic_args.push("-netdev".into());
                     nic_args.push({
                         let mut netdev_arg = OsString::new();
@@ -443,9 +449,12 @@ impl Machine {
                     nic_args.push("-device".into());
                     nic_args.push({
                         let mut device_arg = OsString::new();
-                        write!(&mut device_arg, "virtio-net-pci,netdev=nic-{idx}").unwrap();
+                        write!(&mut device_arg, "virtio-net-pci,netdev=nic-{idx},mac={mac}")
+                            .unwrap();
                         device_arg
                     });
+
+                    macs.push(mac);
                 }
             }
         }

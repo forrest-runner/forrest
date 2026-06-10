@@ -1,4 +1,5 @@
 mod config_fs;
+mod mac_pool;
 mod machine;
 mod manager;
 mod run_dir;
