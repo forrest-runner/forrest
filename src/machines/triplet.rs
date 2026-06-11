@@ -118,6 +118,14 @@ impl Triplet {
             .join(&self.repository)
             .join(format!("{}.img", self.machine_name))
     }
+
+    pub(super) fn machine_tmp_state_path(&self, base_dir_path: &Path) -> PathBuf {
+        base_dir_path
+            .join("machines")
+            .join(&self.owner)
+            .join(&self.repository)
+            .join(format!("{}.swtpm", self.machine_name))
+    }
 }
 
 impl std::fmt::Display for Triplet {

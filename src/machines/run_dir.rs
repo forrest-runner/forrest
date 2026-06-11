@@ -1,4 +1,4 @@
-use std::fs::{create_dir_all, File};
+use std::fs::{copy, create_dir_all, File};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
@@ -175,6 +175,18 @@ impl RunDir {
                 &substitutions,
             )?
         };
+
+        // Copy a TPM state to the run dir _if_ one was prepared for the
+        // machine type. This is optional. Continue if none is present.
+        let machine_tmp_state_path = triplet.machine_tmp_state_path(base_dir);
+        let tmp_state_path = run_dir.join("tpm.swtpm");
+        copy(machine_tmp_state_path, tmp_state_path).or_else(|err| match err.kind() {
+            ErrorKind::NotFound => {
+                info!("Did not find TPM state for {machine}, continuing without TPM");
+                Ok(0)
+            }
+            err => Err(err),
+        })?;
 
         let dir = Self {
             run_dir,
