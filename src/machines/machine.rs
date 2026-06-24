@@ -55,6 +55,19 @@ const QEMU_ARGS: &[&[&str]] = &[
         "if=virtio,format=raw,discard=unmap,cache.writeback=on,cache.direct=on,cache.no-flush=on,file=job-config.img",
     ],
 ];
+const QEMU_ARGS_SWTPM: &[&[&str]] = &[
+    &["-chardev", "socket,id=chrtpm,path=swtpm.ctrl"],
+    &["-tpmdev", "emulator,id=tpm0,chardev=chrtpm"],
+    &["-device", "tpm-tis,tpmdev=tpm0"],
+];
+
+const SWTPM_CMD: &str = "/usr/bin/swtpm";
+const SWTPM_ARGS: &[&[&str]] = &[
+    &["socket"],
+    &["--tpm2"],
+    &["--tpmstate", "backend-uri=file://tpm.swtpm"],
+    &["--ctrl", "type=unixio,path=swtpm.ctrl"],
+];
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub(super) enum Status {
@@ -415,6 +428,30 @@ impl Machine {
             ["-virtfs".into(), arg].into_iter()
         });
 
+        // Spawn a software TPM emulation if a state file is present.
+        // We do not monitor the status of this process or wait for the control
+        // socket to be ready.
+        // Instead we just hope that it starts successfully.
+        let (_swtpm, swtpm_args) = {
+            let inner = self.inner();
+            let pwd = inner.run_dir.as_ref().unwrap();
+
+            if pwd.path().join("tpm.swtpm").exists() {
+                let mut swtpm = Command::new(SWTPM_CMD);
+
+                swtpm
+                    .kill_on_drop(true)
+                    .current_dir(pwd.path())
+                    .args(SWTPM_ARGS.iter().flat_map(|arg_list| *arg_list));
+
+                let child = swtpm.spawn()?;
+
+                (Some(child), QEMU_ARGS_SWTPM)
+            } else {
+                (None, [].as_slice())
+            }
+        };
+
         // Assemble the complete set of arguments to pass to the qemu command.
         let mut qemu = {
             let inner = self.inner();
@@ -431,6 +468,7 @@ impl Machine {
                 .arg("-smp")
                 .arg(&smp)
                 .args(QEMU_ARGS.iter().flat_map(|arg_list| *arg_list))
+                .args(swtpm_args.iter().flat_map(|arg_list| *arg_list))
                 .args(virtfs_args);
 
             qemu
