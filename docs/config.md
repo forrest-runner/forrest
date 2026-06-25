@@ -276,3 +276,21 @@ Defaults to `false`.
 
 > [!WARNING]
 > Make absolutely sure you know what you are doing before setting this to `true`.
+
+# `repositories.<user>.<repository>.machines.<machine type>.network_interfaces`
+
+(optional)
+
+A list of extra network interfaces to add to the machines.
+These can be used to give the machines access to networks that they normally
+would not have.
+
+# `repositories.<user>.<repository>.machines.<machine type>.network_interfaces[<N>].type`
+
+How qemu connects the interface on the host.
+For now the only available `type` is `vde`.
+
+# `repositories.<user>.<repository>.machines.<machine type>.network_interfaces[<N>].path`
+
+For a network interface of `type` `vde`: the path to the existing vde socket on
+the host.
