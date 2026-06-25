@@ -8,7 +8,7 @@ fn default_timeout() -> Duration {
     Duration::from_secs(15 * 60)
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct GitHubConfig {
     pub app_id: u64,

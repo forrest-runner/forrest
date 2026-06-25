@@ -1,6 +1,6 @@
 use serde::{Deserialize, Deserializer};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SizeInBytes(u64);
 
 impl<'de> Deserialize<'de> for SizeInBytes {

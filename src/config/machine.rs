@@ -6,7 +6,7 @@ use serde::Deserialize;
 use super::size_in_bytes::SizeInBytes;
 use crate::machines::Triplet;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct SetupTemplate {
     pub path: PathBuf,
 
@@ -14,7 +14,7 @@ pub struct SetupTemplate {
     pub parameters: HashMap<String, String>,
 }
 
-#[derive(Default, Deserialize, Clone, Copy)]
+#[derive(Debug, Default, Deserialize, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum SeedBasePolicy {
     #[default]
@@ -23,7 +23,7 @@ pub enum SeedBasePolicy {
     Never,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ExposedDirectory {
     pub path: PathBuf,
@@ -36,7 +36,7 @@ fn default_artifact_name() -> String {
     "artifact".into()
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Artifact {
     #[serde(default = "default_artifact_name")]
@@ -47,13 +47,13 @@ pub struct Artifact {
     pub token: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct NetworkInterfaceVde {
     pub path: PathBuf,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "type")]
 #[serde(deny_unknown_fields)]
 pub enum NetworkInterface {
@@ -61,7 +61,7 @@ pub enum NetworkInterface {
     Vde(NetworkInterfaceVde),
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct MachineConfig {
     pub base_machine: Option<Triplet>,
@@ -85,7 +85,7 @@ pub struct MachineConfig {
     pub network_interfaces: Vec<NetworkInterface>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Repository {
     pub persistence_token: Option<String>,

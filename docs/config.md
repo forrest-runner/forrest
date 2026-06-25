@@ -26,24 +26,23 @@ github:
   polling_interval: 15m
   webhook_secret: Some super secret text
 
-machine_snippets:
-  cfg-template: &cfg-template
-    setup_template:
-      path: /etc/forrest/templates/generic
-      parameters:
-        RUNNER_VERSION: "2.318.0"
-        RUNNER_HASH: "28ed88e4cedf0fc93201a901e392a70463dbd0213f2ce9d57a4ab495027f3e2f"
-
+.machines:
   os-arch: &os-arch
     base_image: /srv/forrest/images/Arch-Linux-x86_64-cloudimg.img
   os-debian: &os-debian
     base_image: /srv/forrest/images/debian-12-generic-amd64.raw
 
   machine-small: &machine-small
+    setup_template:
+      path: /etc/forrest/templates/generic
+      parameters:
+        RUNNER_VERSION: "2.318.0"
+        RUNNER_HASH: "28ed88e4cedf0fc93201a901e392a70463dbd0213f2ce9d57a4ab495027f3e2f"
     cpus: 4
     disk: 16G
     ram: 4G
   machine-medium: &machine-medium
+    << : *machine-small
     cpus: 8
     disk: 32G
     ram: 8G
@@ -54,20 +53,20 @@ repositories:
       persistence_token: <PERSISTENCE_TOKEN>
       machines:
         arch-base:
-          << : [*cfg-template, *os-arch, *machine-small]
+          << : [*os-arch, *machine-small]
           use_base: always
         debian-base:
-          << : [*cfg-template, *os-debian, *machine-small]
+          << : [*os-debian, *machine-small]
           use_base: always
         debian-yocto:
-          << : [*cfg-template, *os-debian, *machine-small]
+          << : [*os-debian, *machine-small]
           base_machine: hnez/forrest-images/debian-base
           use_base: always
 
     forrest-test:
       machines:
         test-debian:
-          << : [*cfg-template, *os-debian, *machine-medium]
+          << : [*os-debian, *machine-medium]
           base_machine: hnez/forrest-images/debian-base
 ```
 
@@ -112,11 +111,11 @@ Polling is a backup in case we have missed webhook events and is not a replacene
 for the webhook.
 The default interval is 15 minutes and should not be reduced too far.
 
-# `*_snippets`
+# `.*`
 
 (Optional)
 
-All top level configuration fields that end in `_snippets` are ignored.
+All configuration fields that start with a dot are ignored.
 These can be used to create config snippets that can be reused in other
 config sections.
 
