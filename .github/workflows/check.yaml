@@ -18,7 +18,7 @@ jobs:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable
       - run: rustup run stable cargo fmt --all -- --check
 
@@ -26,7 +26,7 @@ jobs:
     name: cargo clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable
       - run: rustup run stable cargo clippy --all
 
@@ -34,6 +34,6 @@ jobs:
     name: cargo test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable
       - run: rustup run stable cargo test
